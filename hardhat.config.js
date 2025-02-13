@@ -17,6 +17,7 @@ module.exports = {
     apiKey: {
       mainnet: process.env.ETHERSCAN_API_KEY,
       arbitrumOne:  process.env.ARBISCAN_API_KEY,
+      base: process.env.BASESCAN_API_KEY,
       scroll: process.env.SCROLLSCAN_API_KEY
     },
     customChains: [
@@ -54,6 +55,10 @@ module.exports = {
     },
     scroll: {
       url: `https://scroll-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [process.env.MAINNET_PRIVATE_KEY],
+    },
+    base: {
+      url: `https://base-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts: [process.env.MAINNET_PRIVATE_KEY],
     },
   },

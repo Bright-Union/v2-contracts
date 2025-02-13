@@ -15,6 +15,7 @@
 
 pragma solidity ^0.8.19;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@stargatefinance/stg-evm-v2/src/interfaces/IStargate.sol";
 import {IStargate, Ticket} from "@stargatefinance/stg-evm-v2/src/interfaces/IStargate.sol";
 import {MessagingFee, OFTReceipt, SendParam} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
@@ -23,7 +24,7 @@ import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/
 contract StargateBusDeparture {
     using OptionsBuilder for bytes;
 
-    event BusDeparture(Ticket ticket);
+    event ZipCover(bytes32 guid, address sender);
 
     function prepareZipCover(
         address _stargate,
@@ -60,8 +61,12 @@ contract StargateBusDeparture {
     }
 
     function zipCover(address _stargate, SendParam memory sendParam, MessagingFee memory messagingFee) external payable {
-        (, , Ticket memory ticket) = IStargate(_stargate).sendToken{ value: msg.value }(sendParam, messagingFee, msg.sender);
-        emit BusDeparture(ticket);
+        address _asset = IStargate(_stargate).token();
+        IERC20(_asset).transferFrom(msg.sender,address(this), sendParam.amountLD);
+        IERC20(_asset).approve(_stargate,sendParam.amountLD);
+
+        (MessagingReceipt memory receipt, ,) = IStargate(_stargate).sendToken{ value: msg.value }(sendParam, messagingFee, msg.sender);
+        emit ZipCover(receipt.guid, msg.sender);
     }
 
     function addressToBytes32(address _addr) internal pure returns (bytes32) {
