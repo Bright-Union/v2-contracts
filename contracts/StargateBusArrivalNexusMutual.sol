@@ -93,7 +93,7 @@ contract StargateBusArrivalNexusMutual is Ownable, ILayerZeroComposer {
         emit ZipCoverReceive(_guid, _zippedCoverParams.owner, _zippedCoverParams.swapData, _poolIds, _coverAmountInAsset);
     }
 
-    function zapCover(bytes32 _guid, bytes _swapData, INexusDistributor.PoolAllocationRequest[] poolAllocationRequests) external {
+    function zapCover(bytes32 _guid, bytes memory _swapData, INexusDistributor.PoolAllocationRequest[] memory poolAllocationRequests) external {
         (address _asset, uint256 _priceWithFee) = coverAmounts(_swapData);
         IERC20(_asset).approve(address(distributor), _priceWithFee);
         distributor.buyCover(buyParams[_guid], poolAllocationRequests, _swapData);
@@ -102,8 +102,8 @@ contract StargateBusArrivalNexusMutual is Ownable, ILayerZeroComposer {
         emit ZapCover(_guid);
     }
 
-    function cancelCover(bytes32 _guid) external onlyOwner {
-        (address _asset, uint256 _priceWithFee) = coverAmounts(_guid);
+    function cancelCover(bytes32 _guid, bytes memory _swapData) external onlyOwner {
+        (address _asset, uint256 _priceWithFee) = coverAmounts(_swapData);
         IERC20(_asset).transfer(buyParams[_guid].owner, _priceWithFee);
         delete buyParams[_guid];
         emit CancelCover(_guid);
@@ -113,7 +113,7 @@ contract StargateBusArrivalNexusMutual is Ownable, ILayerZeroComposer {
         IERC20(_asset).transfer(msg.sender, _amount);
     }
 
-    function coverAmounts(bytes _swapData) public view returns (address _asset, uint256 _priceWithFee) {
+    function coverAmounts(bytes memory _swapData) public view returns (address _asset, uint256 _priceWithFee) {
         (,,,, _asset,,,_priceWithFee) = abi.decode(
             _swapData,
             (
@@ -127,5 +127,5 @@ contract StargateBusArrivalNexusMutual is Ownable, ILayerZeroComposer {
                 uint256
             )
         );
-    }*/
+    }
 }

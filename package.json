@@ -7,8 +7,10 @@
     "test": "npx hardhat test",
     "local_node": "npx hardhat node",
     "deploy_stargate_departure_scroll": "npx hardhat run --network scroll scripts/stargate_departure.js",
+    "deploy_stargate_departure_base": "npx hardhat run --network base scripts/stargate_departure.js",
     "deploy_stargate_arrival_arbitrum": "npx hardhat run --network arbitrumOne scripts/stargate_arrival.js",
-    "deploy_stargate_arrival_base": "npx hardhat run --network base scripts/stargate_arrival.js"
+    "deploy_stargate_arrival_base": "npx hardhat run --network base scripts/stargate_arrival.js",
+    "deploy_stargate_arrival_mainnet": "npx hardhat run --network mainnet scripts/stargate_arrival.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
