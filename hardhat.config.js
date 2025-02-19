@@ -18,7 +18,8 @@ module.exports = {
       mainnet: process.env.ETHERSCAN_API_KEY,
       arbitrumOne:  process.env.ARBISCAN_API_KEY,
       base: process.env.BASESCAN_API_KEY,
-      scroll: process.env.SCROLLSCAN_API_KEY
+      scroll: process.env.SCROLLSCAN_API_KEY,
+      gnosis: process.env.GNOSISSCAN_API_KEY,
     },
     customChains: [
       {
@@ -27,6 +28,14 @@ module.exports = {
         urls: {
           apiURL: 'https://api.scrollscan.com/api',
           browserURL: 'https://scrollscan.com/',
+        },
+      },
+      {
+        network: "gnosis",
+        chainId: 100,
+        urls: {
+          apiURL: "https://api.gnosisscan.io/api",
+          browserURL: "https://gnosisscan.io/",
         },
       },
     ],
@@ -55,6 +64,10 @@ module.exports = {
     },
     base: {
       url: `https://base-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [process.env.MAINNET_PRIVATE_KEY],
+    },
+    gnosis: {
+      url: `https://rpc.gnosischain.com`,
       accounts: [process.env.MAINNET_PRIVATE_KEY],
     },
   },
