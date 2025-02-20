@@ -9,6 +9,7 @@
     "deploy_layerzero_oft_base": "npx hardhat run --network base scripts/oft/deploy_oft.js",
     "deploy_layerzero_oft_gnosis": "npx hardhat run --network gnosis scripts/oft/deploy_oft.js",
     "deploy_layerzero_oft_adapter_mainnet": "npx hardhat run --network mainnet scripts/oft/deploy_oft_adapter.js",
+    "test_layerzero_oft_adapter_mainnet": "npx hardhat run --network mainnet scripts/oft/test_oft.js",
 
     "deploy_stargate_departure_scroll": "npx hardhat run --network scroll scripts/stargate_departure.js",
     "deploy_stargate_departure_base": "npx hardhat run --network base scripts/stargate_departure.js",
@@ -44,6 +45,7 @@
     "@layerzerolabs/lz-evm-messagelib-v2": "^3.0.67",
     "@layerzerolabs/lz-evm-oapp-v2": "^3.0.67",
     "@layerzerolabs/lz-evm-protocol-v2": "^3.0.67",
+    "@layerzerolabs/lz-v2-utilities": "^3.0.69",
     "@layerzerolabs/oapp-evm": "^0.3.0",
     "@layerzerolabs/oft-evm": "^3.1.1",
     "@openzeppelin/contracts": "^5.0.2",
