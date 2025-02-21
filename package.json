@@ -10,6 +10,7 @@
     "deploy_layerzero_oft_gnosis": "npx hardhat run --network gnosis scripts/oft/deploy_oft.js",
     "deploy_layerzero_oft_adapter_mainnet": "npx hardhat run --network mainnet scripts/oft/deploy_oft_adapter.js",
     "test_layerzero_oft_adapter_mainnet": "npx hardhat run --network mainnet scripts/oft/test_oft.js",
+    "set_options_oft_adapter_gnosis": "npx hardhat run --network gnosis scripts/oft/setEnforcedOptions.js",
 
     "deploy_stargate_departure_scroll": "npx hardhat run --network scroll scripts/stargate_departure.js",
     "deploy_stargate_departure_base": "npx hardhat run --network base scripts/stargate_departure.js",

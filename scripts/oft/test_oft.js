@@ -15,7 +15,7 @@ async function main() {
   const toAddress = '0xC6AC25a9edefb3368710c0Aef5fC387691CA0e3A';
   const eidB = '30145'; //gnosis
   const amount = '100000000000000000000'; //100
-  let options = Options.newOptions().addExecutorLzReceiveOption(85000, 0).toBytes();
+  let options = Options.newOptions().addExecutorLzReceiveOption(70000, 0).toBytes();
 
   const sendParam = {
     dstEid: eidB,
