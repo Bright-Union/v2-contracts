@@ -15,11 +15,12 @@ module.exports = {
   },
   etherscan: {
     apiKey: {
-      mainnet: process.env.ETHERSCAN_API_KEY,
       arbitrumOne:  process.env.ARBISCAN_API_KEY,
+      mainnet: process.env.ETHERSCAN_API_KEY,
       base: process.env.BASESCAN_API_KEY,
       scroll: process.env.SCROLLSCAN_API_KEY,
       gnosis: process.env.GNOSISSCAN_API_KEY,
+      optimisticEthereum: process.env.OPTIMISTIC_API_KEY,
     },
     customChains: [
       {
@@ -50,12 +51,12 @@ module.exports = {
     localhost: {
       //url: ``,
     },
-    mainnet: {
-      url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
-      accounts: [process.env.MAINNET_PRIVATE_KEY],
-    },
     arbitrumOne: {
       url: `https://arbitrum-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [process.env.MAINNET_PRIVATE_KEY],
+    },
+    mainnet: {
+      url: `https://mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts: [process.env.MAINNET_PRIVATE_KEY],
     },
     scroll: {
@@ -68,6 +69,10 @@ module.exports = {
     },
     gnosis: {
       url: `https://rpc.gnosischain.com`,
+      accounts: [process.env.MAINNET_PRIVATE_KEY],
+    },
+    optimism: {
+      url: `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts: [process.env.MAINNET_PRIVATE_KEY],
     },
   },

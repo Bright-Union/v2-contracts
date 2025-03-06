@@ -1,13 +1,24 @@
 const hre = require("hardhat");
+const { Deployer } = require('@matterlabs/hardhat-zksync')
+const { Wallet } = require('zksync-ethers')
+require('dotenv').config()
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
+  // Initialize the wallet using your private key.
+  const wallet = new Wallet(process.env.MAINNET_PRIVATE_KEY);
 
-  const stargateBusDeparture = await hre.ethers.deployContract("StargateBusDeparture", [])
+  // Create deployer object and load the artifact of the contract we want to deploy.
+  const deployer = new Deployer(hre, wallet);
+  // Load contract
+  const artifact = await deployer.loadArtifact("StargateBusDeparture");
+
+  const stargateBusDeparture = await deployer.deploy(artifact);
+
   await stargateBusDeparture.waitForDeployment();
   console.log(
     `StargateBusDeparture was deployed to ${await stargateBusDeparture.getAddress()}`
   );
+
 
 
   //verify

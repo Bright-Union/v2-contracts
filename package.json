@@ -12,13 +12,15 @@
     "test_layerzero_oft_adapter_mainnet": "npx hardhat run --network mainnet scripts/oft/test_oft.js",
     "set_options_oft_adapter_gnosis": "npx hardhat run --network gnosis scripts/oft/setEnforcedOptions.js",
 
-    "deploy_stargate_departure_scroll": "npx hardhat run --network scroll scripts/stargate_departure.js",
+    "deploy_stargate_departure_abstract": "npx hardhat run --network abstract scripts/stargate_zk_departure.js",
+    "deploy_stargate_departure_arbitrum": "npx hardhat run --network arbitrumOne scripts/stargate_departure.js",
     "deploy_stargate_departure_base": "npx hardhat run --network base scripts/stargate_departure.js",
-    "deploy_stargate_arrival_arbitrum": "npx hardhat run --network arbitrumOne scripts/stargate_arrival.js",
-    "deploy_stargate_arrival_base": "npx hardhat run --network base scripts/stargate_arrival.js",
+    "deploy_stargate_departure_gnosis": "npx hardhat run --network gnosis scripts/stargate_departure.js",
+    "deploy_stargate_departure_optimism": "npx hardhat run --network optimism scripts/stargate_departure.js",
     "deploy_stargate_arrival_mainnet": "npx hardhat run --network mainnet scripts/stargate_arrival.js"
   },
   "devDependencies": {
+    "@matterlabs/hardhat-zksync": "^1.4.0",
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
@@ -40,7 +42,8 @@
     "ts-node": "^10.9.2",
     "typechain": "^8.3.2",
     "typescript": "^5.7.3",
-    "web3": "^1.10.4"
+    "web3": "^1.10.4",
+    "zksync-ethers": "^6.16.1"
   },
   "dependencies": {
     "@layerzerolabs/lz-evm-messagelib-v2": "^3.0.67",
