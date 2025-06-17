@@ -1,7 +1,9 @@
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+interface ICoverNFT {
 
-interface ICoverNFT is IERC721 {
+    function mint(address to) external returns (uint tokenId);
+
+    function totalSupply() external view returns (uint);
 
 }

@@ -15,6 +15,9 @@ contract Products is Ownable {
         bool isDeprecated;
     }
 
+    constructor(address _owner) Ownable(_owner){
+    }
+
     function calculatePremium(
         uint coverAmount,
         uint period,
