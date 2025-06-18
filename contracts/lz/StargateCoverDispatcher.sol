@@ -1,0 +1,100 @@
+/* Copyright (C) 2025 BrightUnion.io
+
+  This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+    along with this program.  If not, see http://www.gnu.org/licenses/ */
+
+pragma solidity ^0.8.19;
+
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@stargatefinance/stg-evm-v2/src/interfaces/IStargate.sol";
+import {IStargate, Ticket} from "@stargatefinance/stg-evm-v2/src/interfaces/IStargate.sol";
+import {MessagingFee, OFTReceipt, SendParam} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
+import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
+
+contract StargateBusDeparture {
+    using OptionsBuilder for bytes;
+
+    event ZipCover(bytes32 guid, address sender);
+
+    function prepareZipping(
+        address _stargate,
+        uint32[] calldata _dstEids,
+        uint256[] calldata _amounts,
+        address[] calldata _receivers,
+        bytes[] memory _composeMsgs
+    ) external view returns (uint256[] memory valueToSend, SendParam[] memory sendParam, MessagingFee[] memory messagingFee) {
+        for (uint i = 0; i < _dstEids.length; i++) {
+            (uint256 value, SendParam memory param, MessagingFee memory fee) =
+                            _prepareZipCover(_stargate, _dstEids[i], _amounts[i], _receivers[i], _composeMsgs[i]);
+            valueToSend[i] = value;
+            sendParam[i] = param;
+            messagingFee[i] = fee;
+        }
+    }
+
+    function _prepareZipCover(
+        address _stargate,
+        uint32 _dstEid,
+        uint256 _amount,
+        address _receiver,
+        bytes memory _composeMsg
+    ) internal view returns (uint256 valueToSend, SendParam memory sendParam, MessagingFee memory messagingFee) {
+        bytes memory extraOptions = _composeMsg.length > 0
+            ? OptionsBuilder.newOptions().addExecutorLzComposeOption(0, 200_000, 0)
+            : bytes("");
+
+        sendParam = SendParam({
+            dstEid: _dstEid,
+            to: addressToBytes32(_receiver),
+            amountLD: _amount,
+            minAmountLD: _amount,
+            extraOptions: extraOptions,
+            composeMsg: _composeMsg,
+            oftCmd: new bytes(1)
+        });
+
+        IStargate stargate = IStargate(_stargate);
+
+        (, , OFTReceipt memory receipt) = stargate.quoteOFT(sendParam);
+        sendParam.minAmountLD = receipt.amountReceivedLD;
+
+        messagingFee = stargate.quoteSend(sendParam, false);
+        valueToSend = messagingFee.nativeFee;
+
+        if (stargate.token() == address(0x0)) {
+            valueToSend += sendParam.amountLD;
+        }
+    }
+
+    function zipCovers(address _stargate, SendParam[] memory sendParams, MessagingFee[] memory messagingFees) external payable {
+        address _asset = IStargate(_stargate).token();
+        uint256 totalAmountLD;
+        for (uint i = 0; i < sendParams.length; i++) {
+            totalAmountLD += sendParams[i].amountLD;
+        }
+        if (totalAmountLD > 0) {
+            IERC20(_asset).transferFrom(msg.sender, address(this), totalAmountLD);
+            IERC20(_asset).approve(_stargate, totalAmountLD);
+        }
+        for (uint i = 0; i < sendParams.length; i++) {
+            //TODO Special case to split ETH transfers
+            (MessagingReceipt memory receipt, ,) = IStargate(_stargate)
+                .sendToken{ value: msg.value }(sendParams[i], messagingFees[i], msg.sender);
+            emit ZipCover(receipt.guid, msg.sender);
+        }
+    }
+
+    function addressToBytes32(address _addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(_addr)));
+    }
+}

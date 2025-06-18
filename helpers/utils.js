@@ -12,6 +12,7 @@ const web3 = new Web3();
 const { toWei, fromWei } = web3.utils;
 const { BN } = web3.utils;
 
+const daysToSeconds = days => days * 24 * 60 * 60;
 
 let _snapshot;
 async function snapshot() {
@@ -104,6 +105,7 @@ module.exports = {
   advanceBlockTo,
   getStableAmount,
   convert,
+  daysToSeconds,
   snapshot,
   restore,
   getCurrentBlockTimestamp,
