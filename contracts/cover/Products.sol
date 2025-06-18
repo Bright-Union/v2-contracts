@@ -1,39 +1,29 @@
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "../interfaces/IProducts.sol";
 
-contract Products is Ownable {
-
+contract Products is IProducts, Ownable {
     uint public constant PRICE_DENOMINATOR = 100_00;
 
     ProductStruct[] internal _products;
     // productId => product name
     mapping(uint => string) internal _productNames;
 
-    struct ProductStruct {
-        string productName;
-        uint productId;
-        uint nmProductId;
-        string ipfsMetadata;
-        uint96 price;
-        // cover assets bitmap. each bit represents whether the asset with
-        // the index of that bit is enabled as a cover asset for this product
-        uint32 coverAssets;
-        bool isDeprecated;
-    }
+    Asset[] private _assets;
 
-    event ProductSet(uint id);
-    event ProductUpdated(uint id);
+    constructor(address _owner) Ownable(_owner) {}
 
-    constructor(address _owner) Ownable(_owner){
-    }
-
-    function setProducts(ProductStruct[] calldata _newProducts) external onlyOwner {
+    function setProducts(
+        ProductStruct[] calldata _newProducts
+    ) external onlyOwner {
         for (uint i = 0; i < _newProducts.length; i++) {
             ProductStruct calldata param = _newProducts[i];
             //existing product?
             if (param.productId < _products.length) {
-                ProductStruct storage newProductValue = _products[param.productId];
+                ProductStruct storage newProductValue = _products[
+                    param.productId
+                ];
                 newProductValue.productName = param.productName;
                 newProductValue.nmProductId = param.nmProductId;
                 newProductValue.ipfsMetadata = param.ipfsMetadata;
@@ -48,8 +38,14 @@ contract Products is Ownable {
                 _products.push(param);
                 emit ProductSet(productId);
             }
-
         }
+    }
+
+    function addAsset(
+        address assetAddress,
+        bool isCoverAsset
+    ) external onlyOwner {
+        _assets.push(Asset(assetAddress, isCoverAsset));
     }
 
     function calculatePremium(
@@ -57,18 +53,20 @@ contract Products is Ownable {
         uint period,
         uint productId
     ) public view returns (uint) {
-        uint premiumPerYear =
-            coverAmount
-            * _products[productId].price
-            / PRICE_DENOMINATOR;
-        return premiumPerYear * period / 365 days;
+        uint premiumPerYear = (coverAmount * _products[productId].price) /
+            PRICE_DENOMINATOR;
+        return (premiumPerYear * period) / 365 days;
     }
 
-    function getProduct(uint productId) external view returns (ProductStruct memory) {
+    function getProduct(
+        uint productId
+    ) external view returns (ProductStruct memory) {
         return _products[productId];
     }
 
-    function getProductName(uint productId) external view returns (string memory) {
+    function getProductName(
+        uint productId
+    ) external view returns (string memory) {
         return _productNames[productId];
     }
 
@@ -80,4 +78,10 @@ contract Products is Ownable {
         return _products;
     }
 
+    function getAsset(uint assetId) external view returns (Asset memory) {
+        if (assetId >= _assets.length) {
+            revert AssetNotFound(assetId);
+        }
+        return _assets[assetId];
+    }
 }
