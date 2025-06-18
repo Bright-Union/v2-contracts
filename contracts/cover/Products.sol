@@ -23,15 +23,16 @@ contract Products is Ownable {
     }
 
     event ProductSet(uint id);
+    event ProductUpdated(uint id);
 
     constructor(address _owner) Ownable(_owner){
     }
 
-    function setProducts(ProductStruct[] calldata products) external onlyOwner {
-        for (uint i = 0; i < products.length; i++) {
-            ProductStruct calldata param = products[i];
+    function setProducts(ProductStruct[] calldata _newProducts) external onlyOwner {
+        for (uint i = 0; i < _newProducts.length; i++) {
+            ProductStruct calldata param = _newProducts[i];
             //existing product?
-            if (_products[param.productId].price > 0) {
+            if (param.productId < _products.length) {
                 ProductStruct storage newProductValue = _products[param.productId];
                 newProductValue.productName = param.productName;
                 newProductValue.nmProductId = param.nmProductId;
@@ -39,6 +40,8 @@ contract Products is Ownable {
                 newProductValue.price = param.price;
                 newProductValue.coverAssets = param.coverAssets;
                 newProductValue.isDeprecated = param.isDeprecated;
+                _productNames[param.productId] = param.productName;
+                emit ProductUpdated(param.productId);
             } else {
                 uint productId = _products.length;
                 _productNames[productId] = param.productName;
