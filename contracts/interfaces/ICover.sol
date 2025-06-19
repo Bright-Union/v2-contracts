@@ -7,7 +7,7 @@ struct BuyCoverParams {
     uint8 coverAsset;
     uint96 amount;
     uint32 period;
-    uint premiumInAsset;
+    uint8 paymentAsset;
 }
 
 struct Cover {

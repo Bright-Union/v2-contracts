@@ -16,10 +16,10 @@ contract RiskCoverHook is ICover, ReentrancyGuard {
 
     ICoverNFT public immutable coverNFT;
     IProducts public immutable products;
-    mapping(uint => Cover) private _covers;
-    mapping(address => uint[]) private _userCovers;
-    mapping(uint8 => uint256) private _totalActiveCover;
-    mapping(uint8 => uint256) private _totalLiquidity;
+    mapping(uint => Cover) internal _covers;
+    mapping(address => uint[]) internal _userCovers;
+    mapping(uint8 => uint256) internal _totalActiveCover;
+    mapping(uint8 => uint256) internal _totalLiquidity;
 
     constructor(ICoverNFT _coverNFT, IProducts _products) {
         coverNFT = _coverNFT;
@@ -76,7 +76,13 @@ contract RiskCoverHook is ICover, ReentrancyGuard {
 
         _updateTotalCover(params.coverAsset, params.amount, true);
 
-        _processPayment(_asset.assetAddress, params.premiumInAsset);
+        uint premium = products.calculatePremium(
+            params.amount,
+            params.period,
+            params.productId
+        );
+
+        _processPayment(params.paymentAsset, premium);
     }
 
     function _extendCover(BuyCoverParams memory params) private {
@@ -109,10 +115,14 @@ contract RiskCoverHook is ICover, ReentrancyGuard {
             getAvailableLiquidity(params.coverAsset) < params.amount
         ) revert InsufficientLiquidity();
 
-        _processPayment(
-            products.getAsset(params.coverAsset).assetAddress,
-            params.premiumInAsset
+        uint premium = _calculateExtendCoverPremium(
+            params.amount,
+            params.period,
+            params.productId,
+            existingCover
         );
+
+        _processPayment(params.paymentAsset, premium);
 
         if (increasingAmount) {
             _updateTotalCover(params.coverAsset, params.amount, true);
@@ -124,8 +134,40 @@ contract RiskCoverHook is ICover, ReentrancyGuard {
         }
     }
 
-    function _processPayment(address assetAddress, uint premium) private {
-        if (premium == 0) return;
+    function _calculateExtendCoverPremium(
+        uint amount,
+        uint32 period,
+        uint productId,
+        Cover memory existingCover
+    ) private view returns (uint totalPremium) {
+        uint premium1 = 0;
+        uint premium2 = 0;
+
+        if (amount > 0) {
+            uint32 remainingPeriod = existingCover.startTime +
+                existingCover.period -
+                uint32(block.timestamp);
+            premium1 = products.calculatePremium(
+                amount,
+                remainingPeriod,
+                productId
+            );
+        }
+
+        if (period > 0) {
+            premium2 = products.calculatePremium(
+                existingCover.amount + amount,
+                period,
+                productId
+            );
+        }
+
+        return premium1 + premium2;
+    }
+
+    function _processPayment(uint8 assetId, uint premium) private {
+        Asset memory _asset = products.getAsset(assetId);
+        address assetAddress = _asset.assetAddress;
 
         if (assetAddress == address(0)) {
             if (msg.value < premium) revert PremiumPaymentFailed();
