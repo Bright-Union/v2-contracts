@@ -1,6 +1,11 @@
-# v2-contracts
+# [Bright Union](https://app.brightunion.io/)
 
-The logo contains core Solidity contracts for Bright Union V2.
-- `OFT` folder contains the contracts for the Omnichain Fungible Token (OFT) implementation.
-- `StargateBusDeparture.sol` is the endpoint for the cover sales, to be placed on all L2s
-- `StargateBusArrivalNexusMutual.sol` is the destination for LayerZero, lives on L1, and is responsible for calling Nexus Mutual distributor contract
+## Smart Contracts Details
+This repository contains the smart contracts for Bright Union, a decentralized insurance platform.
+The contracts are designed to facilitate cover sales and claims processing across multiple chains and risk pools, 
+using LayerZero technology.
+
+## Contract Overview
+- `OFT` (Omnichain Fungible Token) contracts are used to manage the fungible tokens across different chains.
+- `lz` (LayerZero) contracts are used to facilitate cross-chain communication.
+- `cover` contracts are used to manage cover sales and claims processing.
