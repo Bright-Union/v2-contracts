@@ -3,10 +3,10 @@ const hre = require("hardhat");
 async function main() {
   const [deployer] = await ethers.getSigners();
 
-  const stargateBusDeparture = await hre.ethers.deployContract("StargateBusDeparture", [])
-  await stargateBusDeparture.waitForDeployment();
+  const stargateCoverDispatcher = await hre.ethers.deployContract("StargateCoverDispatcher", [])
+  await stargateCoverDispatcher.waitForDeployment();
   console.log(
-    `StargateBusDeparture was deployed to ${await stargateBusDeparture.getAddress()}`
+    `StargateCoverDispatcher was deployed to ${await stargateCoverDispatcher.getAddress()}`
   );
 
 
@@ -17,7 +17,7 @@ async function main() {
     await delay(45000);
 
     await hre.run("verify:verify", {
-      address: await stargateBusDeparture.getAddress()
+      address: await stargateCoverDispatcher.getAddress()
     });
   }
 

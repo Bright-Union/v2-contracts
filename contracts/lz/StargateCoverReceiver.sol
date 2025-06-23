@@ -8,7 +8,7 @@ import {ILayerZeroComposer} from "@layerzerolabs/lz-evm-protocol-v2/contracts/in
 import {OFTComposeMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTComposeMsgCodec.sol";
 
 
-contract StargateBusArrivalNexusMutual is Ownable, ILayerZeroComposer {
+contract StargateCoverReceiver is Ownable, ILayerZeroComposer {
 
     address public immutable endpoint;
 
@@ -25,7 +25,7 @@ contract StargateBusArrivalNexusMutual is Ownable, ILayerZeroComposer {
 
     event ZipCoverReceive(bytes32 guid, address owner);
 
-    constructor(address _endpoint, address _distributor) Ownable(msg.sender) {
+    constructor(address _endpoint) Ownable(msg.sender) {
         endpoint = _endpoint;
     }
 
@@ -41,7 +41,7 @@ contract StargateBusArrivalNexusMutual is Ownable, ILayerZeroComposer {
         bytes memory _composeMessage = OFTComposeMsgCodec.composeMsg(_message);
         (ZippedCover memory _zippedCoverParams) =
                             abi.decode(_composeMessage, (ZippedCover));
-
+        //TODO Call buyCover()
         emit ZipCoverReceive(_guid, _zippedCoverParams.owner);
     }
 

@@ -21,6 +21,7 @@ module.exports = {
       scroll: process.env.SCROLLSCAN_API_KEY,
       gnosis: process.env.GNOSISSCAN_API_KEY,
       optimisticEthereum: process.env.OPTIMISTIC_API_KEY,
+      unichain: process.env.UNICHAIN_API_KEY
     },
     customChains: [
       {
@@ -37,6 +38,14 @@ module.exports = {
         urls: {
           apiURL: "https://api.gnosisscan.io/api",
           browserURL: "https://gnosisscan.io/",
+        },
+      },
+      {
+        network: "unichain",
+        chainId: 130,
+        urls: {
+          apiURL: "https://api.uniscan.io/api",
+          browserURL: "https://uniscan.io/",
         },
       },
     ],
@@ -73,6 +82,10 @@ module.exports = {
     },
     optimism: {
       url: `https://optimism-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
+      accounts: [process.env.MAINNET_PRIVATE_KEY],
+    },
+    unichain: {
+      url: `https://unichain-mainnet.infura.io/v3/${process.env.INFURA_API_KEY}`,
       accounts: [process.env.MAINNET_PRIVATE_KEY],
     },
   },

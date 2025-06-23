@@ -8,7 +8,7 @@ import {IStargate, Ticket} from "@stargatefinance/stg-evm-v2/src/interfaces/ISta
 import {MessagingFee, OFTReceipt, SendParam} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/interfaces/IOFT.sol";
 import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 
-contract StargateBusDeparture {
+contract StargateCoverDispatcher {
     using OptionsBuilder for bytes;
 
     event ZipCover(bytes32 guid, address sender);
@@ -20,6 +20,9 @@ contract StargateBusDeparture {
         address[] calldata _receivers,
         bytes[] memory _composeMsgs
     ) external view returns (uint256[] memory valueToSend, SendParam[] memory sendParam, MessagingFee[] memory messagingFee) {
+        valueToSend = new uint256[](_dstEids.length);
+        sendParam = new SendParam[](_dstEids.length);
+        messagingFee = new MessagingFee[](_dstEids.length);
         for (uint i = 0; i < _dstEids.length; i++) {
             (uint256 value, SendParam memory param, MessagingFee memory fee) =
                             _prepareZipCover(_stargate, _dstEids[i], _amounts[i], _receivers[i], _composeMsgs[i]);
@@ -47,7 +50,7 @@ contract StargateBusDeparture {
             minAmountLD: _amount,
             extraOptions: extraOptions,
             composeMsg: _composeMsg,
-            oftCmd: new bytes(1)
+            oftCmd: ""
         });
 
         IStargate stargate = IStargate(_stargate);
@@ -63,7 +66,8 @@ contract StargateBusDeparture {
         }
     }
 
-    function zipCovers(address _stargate, SendParam[] memory sendParams, MessagingFee[] memory messagingFees) external payable {
+    function zipCovers(address _stargate, SendParam[] memory sendParams, MessagingFee[] memory messagingFees,
+        uint256[] calldata values) external payable {
         address _asset = IStargate(_stargate).token();
         uint256 totalAmountLD;
         for (uint i = 0; i < sendParams.length; i++) {
@@ -74,9 +78,8 @@ contract StargateBusDeparture {
             IERC20(_asset).approve(_stargate, totalAmountLD);
         }
         for (uint i = 0; i < sendParams.length; i++) {
-            //TODO Special case to split ETH transfers
             (MessagingReceipt memory receipt, ,) = IStargate(_stargate)
-                .sendToken{ value: msg.value }(sendParams[i], messagingFees[i], msg.sender);
+                .sendToken{ value: values[i] }(sendParams[i], messagingFees[i], msg.sender);
             emit ZipCover(receipt.guid, msg.sender);
         }
     }
