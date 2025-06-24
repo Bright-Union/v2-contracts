@@ -6,24 +6,15 @@ struct LiquidityProvider {
 }
 
 struct PremiumDistribution {
-    uint256 startTime;
-    uint256 endTime;
-    uint256 totalAmount;
-    uint256 distributedAmount;
-}
-
-struct AssetPremiumInfo {
+    uint256 lastPremiumDistributionEpoch;
+    int256 lastPremiumDistributionAmount;
     uint256 accumulatedPremiumPerShare;
-    uint256 lastUpdateTime;
 }
 
 interface ILiquidity {
-    error NoLiquidityProvided();
-    error NoRewardsToClaim();
-    error AssetNotSupported();
-    error InvalidAssetId();
-    error TransferFailed();
     error InsufficientLiquidity();
+    error TransferFailed();
+    error InvalidEpoch();
 
     event RewardsClaimed(
         address indexed provider,
@@ -31,4 +22,6 @@ interface ILiquidity {
         uint256 amount
     );
     event PremiumAdded(uint8 indexed assetId, uint256 amount, uint32 period);
+    event LiquidityRemoved(address indexed provider, uint8 indexed assetId, uint256 amount);
+    event LiquidityAdded(address indexed provider, uint8 indexed assetId, uint256 amount);
 }
