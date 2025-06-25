@@ -29,4 +29,6 @@ interface IProducts {
         uint period,
         uint productId
     ) external view returns (uint);
+
+    function getAssetAddress(uint assetId) external view returns (address);
 }

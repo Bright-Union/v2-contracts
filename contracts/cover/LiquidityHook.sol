@@ -6,27 +6,30 @@ import "../interfaces/IProducts.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
-contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
+contract LiquidityHook is ILiquidity, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using Math for uint256;
 
     uint256 private constant EPOCH_DURATION = 1 days;
+    uint256 private constant MAX_PREMIUM_DISTRIBUTION_EPOCHS = 30;
 
     IProducts public immutable products;
 
     // Liquidity provider info per asset
     mapping(uint8 => mapping(address => LiquidityProvider))
-        private _liquidityProviders;
+        internal _liquidityProviders;
 
     // Total liquidity per asset
-    mapping(uint8 => uint256) private _totalLiquidity;
+    mapping(uint8 => uint256) internal _totalLiquidity;
 
     // Premium delta changes at specific epochs (assetId => epoch => premiumDelta)
     mapping(uint8 => mapping(uint256 => int256))
-        private _premiumDistributionDeltas;
+        internal _premiumDistributionDeltas;
 
     // Premium distribution info per asset
-    mapping(uint8 => PremiumDistribution) private _premiumDistribution;
+    mapping(uint8 => PremiumDistribution) internal _premiumDistribution;
 
     modifier updatesPremiumDistribution(uint8 assetId) {
         _updatePremiumDistribution(assetId);
@@ -42,8 +45,6 @@ contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
     function claimRewards(
         uint8 assetId
     ) external nonReentrant updatesPremiumDistribution(assetId) {
-        products.getAsset(assetId);
-
         LiquidityProvider storage provider = _liquidityProviders[assetId][
             msg.sender
         ];
@@ -70,7 +71,7 @@ contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
                 _accumulatedPremiumPerShare;
 
             _transferAsset(
-                products.getAsset(assetId).assetAddress,
+                products.getAssetAddress(assetId),
                 user,
                 pending
             );
@@ -127,18 +128,20 @@ contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
 
         if (currentEpoch <= lastEpoch) return;
 
+        uint256 distributionEpoch = Math.min(
+            currentEpoch,
+            lastEpoch + MAX_PREMIUM_DISTRIBUTION_EPOCHS + 1
+        );
+
         int256 currentDistribution = _premiumDistribution[assetId]
             .lastPremiumDistributionAmount;
         uint256 totalPremiumAdded = 0;
 
-        for (uint256 i = lastEpoch + 1; i <= currentEpoch; i++) {
+        for (uint256 i = lastEpoch + 1; i <= distributionEpoch; i++) {
             currentDistribution += _premiumDistributionDeltas[assetId][i];
 
-            if (currentDistribution > 0) {
-                totalPremiumAdded += uint256(currentDistribution);
-            }
+            totalPremiumAdded += uint256(currentDistribution);
         }
-
 
         if (totalPremiumAdded > 0) {
             _premiumDistribution[assetId].accumulatedPremiumPerShare +=
@@ -149,9 +152,7 @@ contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
         _premiumDistribution[assetId]
             .lastPremiumDistributionAmount = currentDistribution;
         _premiumDistribution[assetId]
-            .lastPremiumDistributionEpoch = currentEpoch;
-
-
+            .lastPremiumDistributionEpoch = distributionEpoch;
     }
 
     function _addPremiumToDistribution(
@@ -163,20 +164,19 @@ contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
 
         _updatePremiumDistribution(assetId);
 
-        uint256 distributionEpochs = period / EPOCH_DURATION;
-        if (distributionEpochs == 0) distributionEpochs = 1;
+        uint256 distributionEpochs = Math.max(1, period / EPOCH_DURATION);
 
         uint256 amountPerEpoch = amount / distributionEpochs;
-        if (amountPerEpoch == 0) return;
 
-        uint256 currentEpoch = block.timestamp / EPOCH_DURATION;
+        uint256 currentEpoch = (block.timestamp / EPOCH_DURATION) + 1;
 
         _premiumDistributionDeltas[assetId][currentEpoch] += int256(
             amountPerEpoch
         );
 
-        uint256 endEpoch = currentEpoch + distributionEpochs;
-        _premiumDistributionDeltas[assetId][endEpoch] -= int256(amountPerEpoch);
+        _premiumDistributionDeltas[assetId][
+            currentEpoch + distributionEpochs
+        ] -= int256(amountPerEpoch);
 
         emit PremiumAdded(assetId, amount, period);
     }
@@ -185,7 +185,7 @@ contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
         address assetAddress,
         address recipient,
         uint256 amount
-    ) private {
+    ) internal {
         if (assetAddress == address(0)) {
             (bool success, ) = recipient.call{value: amount}("");
             if (!success) revert TransferFailed();
@@ -195,6 +195,18 @@ contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
     }
 
     /* ========== VIEW FUNCTIONS ========== */
+
+    function getTotalLiquidity(uint8 assetId) external view returns (uint256) {
+        return _totalLiquidity[assetId];
+    }
+
+    function getLiquidityProvider(
+        uint8 assetId,
+        address user
+    ) external view returns (uint256 amount, uint256 rewardDebt) {
+        LiquidityProvider storage provider = _liquidityProviders[assetId][user];
+        return (provider.amount, provider.rewardDebt);
+    }
 
     function getPendingRewards(
         uint8 assetId,
@@ -215,20 +227,21 @@ contract LiquidityHook2 is ILiquidity, ReentrancyGuard {
                     .lastPremiumDistributionAmount;
                 uint256 totalPremiumAdded = 0;
 
+                uint256 distributionEpoch = Math.min(
+                    currentEpoch,
+                    lastEpoch + MAX_PREMIUM_DISTRIBUTION_EPOCHS + 1
+                );
+
                 for (
                     uint256 epoch = lastEpoch + 1;
-                    epoch <= currentEpoch;
+                    epoch <= distributionEpoch;
                     epoch++
                 ) {
-                    if (_premiumDistributionDeltas[assetId][epoch] != 0) {
-                        currentDistribution += _premiumDistributionDeltas[
-                            assetId
-                        ][epoch];
-                    }
+                    currentDistribution += _premiumDistributionDeltas[assetId][
+                        epoch
+                    ];
 
-                    if (currentDistribution > 0) {
-                        totalPremiumAdded += uint256(currentDistribution);
-                    }
+                    totalPremiumAdded += uint256(currentDistribution);
                 }
 
                 if (totalPremiumAdded > 0) {

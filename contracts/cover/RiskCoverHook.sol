@@ -82,7 +82,7 @@ contract RiskCoverHook is ICover, ReentrancyGuard {
             params.productId
         );
 
-        _processPayment(params.paymentAsset, premium);
+        _processPayment(_asset.assetAddress, premium);
     }
 
     function _extendCover(BuyCoverParams memory params) private {
@@ -122,7 +122,7 @@ contract RiskCoverHook is ICover, ReentrancyGuard {
             existingCover
         );
 
-        _processPayment(params.paymentAsset, premium);
+        _processPayment(products.getAssetAddress(params.coverAsset), premium);
 
         if (increasingAmount) {
             _updateTotalCover(params.coverAsset, params.amount, true);
@@ -165,10 +165,7 @@ contract RiskCoverHook is ICover, ReentrancyGuard {
         return premium1 + premium2;
     }
 
-    function _processPayment(uint8 assetId, uint premium) private {
-        Asset memory _asset = products.getAsset(assetId);
-        address assetAddress = _asset.assetAddress;
-
+    function _processPayment(address assetAddress, uint premium) private {
         if (assetAddress == address(0)) {
             if (msg.value < premium) revert PremiumPaymentFailed();
 

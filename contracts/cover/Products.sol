@@ -84,4 +84,11 @@ contract Products is IProducts, Ownable {
         }
         return _assets[assetId];
     }
+
+    function getAssetAddress(uint assetId) external view returns (address) {
+        if (assetId >= _assets.length) {
+            revert AssetNotFound(assetId);
+        }
+        return _assets[assetId].assetAddress;
+    }
 }
