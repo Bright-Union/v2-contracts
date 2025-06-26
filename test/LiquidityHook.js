@@ -6,11 +6,8 @@ const {
   toBN,
   daysToSeconds,
   increaseTime,
+  getCurrentBlockTimestamp,
 } = require("../helpers/utils");
-
-// Using .toNumber() directly on BigNumber objects for assertions
-
-// daysToSeconds is now imported from utils.js
 
 describe("LiquidityHook", function () {
   async function deployContracts() {
@@ -51,10 +48,8 @@ describe("LiquidityHook", function () {
         value: liquidityAmount,
       });
 
-      // Get current time epoch for verification
-      const blockNum = await ethers.provider.getBlockNumber();
-      const block = await ethers.provider.getBlock(blockNum);
-      const currentEpoch = Math.floor(block.timestamp / (24 * 60 * 60)) + 1;
+      const currentEpoch =
+        Math.floor((await getCurrentBlockTimestamp()) / (24 * 60 * 60)) + 1;
       const distributionEpochs = Math.max(
         1,
         Math.floor(period / (24 * 60 * 60))
@@ -68,15 +63,12 @@ describe("LiquidityHook", function () {
         .to.emit(liquidityHook, "PremiumAdded")
         .withArgs(0, premiumAmount, period);
 
-      // Check premium distribution info
       const [accPremium, lastPremiumAmount, lastPremiumEpoch] =
         await liquidityHook.getPremiumDistributionInfo(0);
-      expect(toBN(accPremium).toNumber()).to.equal(0); // Premiums are not immediately distributed
+      expect(toBN(accPremium).toNumber()).to.equal(0);
 
-      // With liquidity present, lastPremiumAmount should be equal to the premiumAmount
       expect(toBN(lastPremiumAmount).toString()).to.equal("0");
 
-      // Check premium distribution deltas
       const startDelta = await liquidityHook.getPremiumDistributionDelta(
         0,
         currentEpoch
@@ -86,12 +78,10 @@ describe("LiquidityHook", function () {
         currentEpoch + distributionEpochs
       );
 
-      // Verify the daily premium amount
       const dailyPremiumAmount = toBN(premiumAmount).idiv(
         toBN(distributionEpochs)
       );
 
-      // Verify the distribution deltas
       expect(toBN(startDelta).toString()).to.equal(
         dailyPremiumAmount.toString()
       );
@@ -106,10 +96,8 @@ describe("LiquidityHook", function () {
       const premiumAmount = toWei("0.1");
       const period = daysToSeconds(30);
 
-      // Get current time epoch for verification
-      const blockNum = await ethers.provider.getBlockNumber();
-      const block = await ethers.provider.getBlock(blockNum);
-      const currentEpoch = Math.floor(block.timestamp / (24 * 60 * 60)) + 1;
+      const currentEpoch =
+        Math.floor((await getCurrentBlockTimestamp()) / (24 * 60 * 60)) + 1;
       const distributionEpochs = Math.max(
         1,
         Math.floor(period / (24 * 60 * 60))
@@ -119,14 +107,11 @@ describe("LiquidityHook", function () {
         value: premiumAmount,
       });
 
-      // Check that distribution info is empty (no liquidity)
       const [accPremium, lastPremiumAmount, lastPremiumEpoch] =
         await liquidityHook.getPremiumDistributionInfo(0);
       expect(toBN(accPremium).toNumber()).to.equal(0);
       expect(toBN(lastPremiumAmount).toNumber()).to.equal(0);
 
-      // Check that no deltas were created due to early return in _addPremiumToDistribution
-      // when there's no liquidity
       const startDelta = await liquidityHook.getPremiumDistributionDelta(
         0,
         currentEpoch
@@ -160,7 +145,6 @@ describe("LiquidityHook", function () {
         value: liquidityAmount,
       });
 
-      // Add premium directly as ETH
       await liquidityHook.addPremiumToDistribution(
         0,
         premiumAmount,
@@ -168,20 +152,30 @@ describe("LiquidityHook", function () {
         { value: premiumAmount }
       );
 
-      // Fast forward time to allow premiums to distribute
-      await increaseTime(daysToSeconds(1));
+      await increaseTime(daysToSeconds(1) + 1);
 
-      const balanceBefore = await ethers.provider.getBalance(owner.address);
+      const contractBalanceBefore = await ethers.provider.getBalance(
+        liquidityHook.target
+      );
+      const userBalanceBefore = await ethers.provider.getBalance(owner.address);
 
-      const tx = await liquidityHook.claimRewards(0);
-      await tx.wait();
+      await liquidityHook.claimRewards(0);
 
-      const balanceAfter = await ethers.provider.getBalance(owner.address);
+      const userBalanceAfter = await ethers.provider.getBalance(owner.address);
 
-      // Using closeTo comparison to allow for gas costs
-      expect(toBN(balanceAfter).toNumber()).to.be.closeTo(
-        toBN(balanceBefore).plus(toBN(premiumAmount)).toNumber(),
-        toBN(premiumAmount).times(toBN(0.01)).toNumber() // 1% tolerance for gas costs
+      const contractBalanceAfter = await ethers.provider.getBalance(
+        liquidityHook.target
+      );
+
+      const oneDayPremium = toBN(premiumAmount).idiv(toBN(30));
+
+      expect(toBN(userBalanceAfter).toNumber()).to.be.closeTo(
+        toBN(userBalanceBefore).plus(oneDayPremium).toNumber(),
+        toBN(toWei(".001")).toNumber() // tolerance for gas costs
+      );
+
+      expect(toBN(contractBalanceAfter).toString()).to.equal(
+        toBN(contractBalanceBefore).minus(oneDayPremium).toString()
       );
     });
 
@@ -201,12 +195,15 @@ describe("LiquidityHook", function () {
         { value: premiumAmount }
       );
 
-      await ethers.provider.send("evm_increaseTime", [daysToSeconds(1)]);
-      await ethers.provider.send("evm_mine");
+      await increaseTime(daysToSeconds(1) + 1);
+
+      const oneDayPremium = toBN(premiumAmount).idiv(toBN(30));
+
+      const oneDayPremiumStr = oneDayPremium.toString();
 
       await expect(liquidityHook.claimRewards(0))
         .to.emit(liquidityHook, "RewardsClaimed")
-        .withArgs(owner.address, 0, premiumAmount);
+        .withArgs(owner.address, 0, oneDayPremiumStr);
     });
   });
 
@@ -237,14 +234,17 @@ describe("LiquidityHook", function () {
         { value: premiumAmount }
       );
 
-      await ethers.provider.send("evm_increaseTime", [daysToSeconds(1)]);
-      await ethers.provider.send("evm_mine");
+      await increaseTime(daysToSeconds(1));
+
+      const oneDayPremium = toBN(premiumAmount).idiv(toBN(30));
 
       const pendingRewards = await liquidityHook.getPendingRewards(
         0,
         owner.address
       );
-      expect(pendingRewards).to.be.closeTo(premiumAmount, toWei("0.001"));
+      expect(toBN(pendingRewards).toString()).to.equal(
+        oneDayPremium.toString()
+      );
     });
   });
 
@@ -278,8 +278,7 @@ describe("LiquidityHook", function () {
       );
 
       // Fast forward time
-      await ethers.provider.send("evm_increaseTime", [daysToSeconds(1)]);
-      await ethers.provider.send("evm_mine");
+      await increaseTime(daysToSeconds(15));
 
       // Check pending rewards
       const ownerRewards = await liquidityHook.getPendingRewards(
@@ -296,11 +295,11 @@ describe("LiquidityHook", function () {
       );
 
       // Owner should get ~50% of rewards
-      expect(ownerRewards).to.be.closeTo(toWei("0.5"), toWei("0.01"));
+      expect(ownerRewards.toString()).to.be.equal(toWei("0.5"));
 
       // Users should each get ~25% of rewards
-      expect(user1Rewards).to.be.closeTo(toWei("0.25"), toWei("0.01"));
-      expect(user2Rewards).to.be.closeTo(toWei("0.25"), toWei("0.01"));
+      expect(user1Rewards.toString()).to.be.equal(toWei("0.125"));
+      expect(user2Rewards.toString()).to.be.equal(toWei("0.125"));
     });
   });
 

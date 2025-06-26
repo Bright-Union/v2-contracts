@@ -59,22 +59,17 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         uint8 assetId,
         address user
     ) internal {
-        uint256 _accumulatedPremiumPerShare = _premiumDistribution[assetId]
-            .accumulatedPremiumPerShare / 1e18;
+        uint256 _accumulatedPremiumAmount = (amount *
+            _premiumDistribution[assetId].accumulatedPremiumPerShare) / 1e36;
 
-        uint256 pending = (amount * _accumulatedPremiumPerShare) -
+        uint256 pending = _accumulatedPremiumAmount -
             _liquidityProviders[assetId][user].rewardDebt;
 
         if (pending != 0) {
-            _liquidityProviders[assetId][user].rewardDebt =
-                amount *
-                _accumulatedPremiumPerShare;
+            _liquidityProviders[assetId][user]
+                .rewardDebt = _accumulatedPremiumAmount;
 
-            _transferAsset(
-                products.getAssetAddress(assetId),
-                user,
-                pending
-            );
+            _transferAsset(products.getAssetAddress(assetId), user, pending);
 
             emit RewardsClaimed(user, assetId, pending);
         }
@@ -122,7 +117,8 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
     function _updatePremiumDistribution(uint8 assetId) private {
         if (_totalLiquidity[assetId] == 0) return;
 
-        uint256 currentEpoch = block.timestamp / EPOCH_DURATION;
+        uint256 currentEpoch = getPremiumDistributionEpoch();
+
         uint256 lastEpoch = _premiumDistribution[assetId]
             .lastPremiumDistributionEpoch;
 
@@ -140,12 +136,12 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         for (uint256 i = lastEpoch + 1; i <= distributionEpoch; i++) {
             currentDistribution += _premiumDistributionDeltas[assetId][i];
 
-            totalPremiumAdded += uint256(currentDistribution);
+            totalPremiumAdded += uint256(currentDistribution) / 1e18;
         }
 
         if (totalPremiumAdded > 0) {
             _premiumDistribution[assetId].accumulatedPremiumPerShare +=
-                (totalPremiumAdded * 1e18) /
+                (totalPremiumAdded * 1e36) /
                 _totalLiquidity[assetId];
         }
 
@@ -162,14 +158,24 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
     ) internal {
         if (_totalLiquidity[assetId] == 0) return;
 
+        uint256 currentEpoch = getPremiumDistributionEpoch();
+
+        if (_premiumDistribution[assetId].lastPremiumDistributionEpoch == 0)
+            _premiumDistribution[assetId]
+                .lastPremiumDistributionEpoch = currentEpoch;
+
         _updatePremiumDistribution(assetId);
 
         uint256 distributionEpochs = Math.max(1, period / EPOCH_DURATION);
 
-        uint256 amountPerEpoch = amount / distributionEpochs;
+    
+        uint256 amountPerEpoch = (amount * 1e18) / distributionEpochs;
 
-        uint256 currentEpoch = (block.timestamp / EPOCH_DURATION) + 1;
+    
 
+        currentEpoch += 1;
+
+        
         _premiumDistributionDeltas[assetId][currentEpoch] += int256(
             amountPerEpoch
         );
@@ -192,6 +198,10 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         } else {
             IERC20(assetAddress).safeTransfer(recipient, amount);
         }
+    }
+
+    function getPremiumDistributionEpoch() internal view returns (uint256) {
+        return block.timestamp / EPOCH_DURATION;
     }
 
     /* ========== VIEW FUNCTIONS ========== */
@@ -219,7 +229,7 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         uint256 accPremium = distribution.accumulatedPremiumPerShare;
 
         if (_totalLiquidity[assetId] > 0) {
-            uint256 currentEpoch = block.timestamp / EPOCH_DURATION;
+            uint256 currentEpoch = getPremiumDistributionEpoch();
             uint256 lastEpoch = distribution.lastPremiumDistributionEpoch;
 
             if (currentEpoch > lastEpoch) {
@@ -241,18 +251,19 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
                         epoch
                     ];
 
-                    totalPremiumAdded += uint256(currentDistribution);
+                    // Apply the same 1e18 scaling correction as in the main function
+                    totalPremiumAdded += uint256(currentDistribution) / 1e18;
                 }
 
                 if (totalPremiumAdded > 0) {
                     accPremium +=
-                        (totalPremiumAdded * 1e18) /
+                        (totalPremiumAdded * 1e36) /
                         _totalLiquidity[assetId];
                 }
             }
         }
 
-        return ((provider.amount * accPremium) / 1e18) - provider.rewardDebt;
+        return ((provider.amount * accPremium) / 1e36) - provider.rewardDebt;
     }
 
     /* ========== FALLBACK & RECEIVE ========== */

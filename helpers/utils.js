@@ -8,6 +8,7 @@ function toBN(number) {
   return new BigNumber(number);
 }
 const Web3 = require("web3");
+const { ethers } = require("hardhat");
 const web3 = new Web3();
 const { toWei, fromWei } = web3.utils;
 const { BN } = web3.utils;
@@ -50,17 +51,23 @@ function getStableAmount(amount) {
 }
 
 async function getCurrentBlockTimestamp() {
-  return (await web3.eth.getBlock("latest")).timestamp;
+ 
+  const blockNum = await ethers.provider.getBlockNumber();
+  const block = await ethers.provider.getBlock(blockNum);
+  return block.timestamp;
 }
 
 async function getPreviousBlockTimestamp() {
-  const latest = toBN(await web3.eth.getBlockNumber());
-  return (await web3.eth.getBlock(latest.minus(1))).timestamp;
+  const blockNum = await ethers.provider.getBlockNumber();
+  if (blockNum > 0) {
+    const block = await ethers.provider.getBlock(blockNum - 1);
+    return block.timestamp;
+  }
+  return 0;
 }
 
 async function getCurrentBlock() {
-  const block = await web3.eth.getBlock("latest");
-  return block.number;
+  return await ethers.provider.getBlockNumber();
 }
 
 const getTransactionBlock = (tx) => tx.blockNumber;
