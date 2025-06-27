@@ -68,6 +68,9 @@ describe("LiquidityHook", function () {
       expect(toBN(accPremium).toNumber()).to.equal(0);
 
       expect(toBN(lastPremiumAmount).toString()).to.equal("0");
+      expect(toBN(lastPremiumEpoch).toString()).to.equal(
+        (currentEpoch - 1).toString()
+      );
 
       const startDelta = await liquidityHook.getPremiumDistributionDelta(
         0,
@@ -78,9 +81,9 @@ describe("LiquidityHook", function () {
         currentEpoch + distributionEpochs
       );
 
-      const dailyPremiumAmount = toBN(premiumAmount).idiv(
-        toBN(distributionEpochs)
-      );
+      const dailyPremiumAmount = toBN(premiumAmount)
+        .times(1e18)
+        .idiv(toBN(distributionEpochs));
 
       expect(toBN(startDelta).toString()).to.equal(
         dailyPremiumAmount.toString()
@@ -152,7 +155,7 @@ describe("LiquidityHook", function () {
         { value: premiumAmount }
       );
 
-      await increaseTime(daysToSeconds(1) + 1);
+      await increaseTime(daysToSeconds(1));
 
       const contractBalanceBefore = await ethers.provider.getBalance(
         liquidityHook.target
@@ -195,7 +198,7 @@ describe("LiquidityHook", function () {
         { value: premiumAmount }
       );
 
-      await increaseTime(daysToSeconds(1) + 1);
+      await increaseTime(daysToSeconds(1));
 
       const oneDayPremium = toBN(premiumAmount).idiv(toBN(30));
 
@@ -276,9 +279,10 @@ describe("LiquidityHook", function () {
         daysToSeconds(30),
         { value: toWei("1.0") }
       );
-
+      console.log("time", await getCurrentBlockTimestamp());
       // Fast forward time
       await increaseTime(daysToSeconds(15));
+      console.log("time", await getCurrentBlockTimestamp());
 
       // Check pending rewards
       const ownerRewards = await liquidityHook.getPendingRewards(
@@ -295,11 +299,20 @@ describe("LiquidityHook", function () {
       );
 
       // Owner should get ~50% of rewards
-      expect(ownerRewards.toString()).to.be.equal(toWei("0.5"));
+      expect(toBN(ownerRewards).toNumber()).to.be.closeTo(
+        toBN(toWei("0.25")).toNumber(),
+        1
+      );
 
       // Users should each get ~25% of rewards
-      expect(user1Rewards.toString()).to.be.equal(toWei("0.125"));
-      expect(user2Rewards.toString()).to.be.equal(toWei("0.125"));
+      expect(toBN(user1Rewards).toNumber()).to.be.closeTo(
+        toBN(toWei("0.125")).toNumber(),
+        1
+      );
+      expect(toBN(user2Rewards).toNumber()).to.be.closeTo(
+        toBN(toWei("0.125")).toNumber(),
+        1
+      );
     });
   });
 

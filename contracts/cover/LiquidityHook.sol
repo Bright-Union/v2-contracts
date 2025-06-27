@@ -115,7 +115,10 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
     }
 
     function _updatePremiumDistribution(uint8 assetId) private {
-        if (_totalLiquidity[assetId] == 0) return;
+        if (
+            _totalLiquidity[assetId] == 0 ||
+            _premiumDistribution[assetId].lastPremiumDistributionEpoch == 0
+        ) return;
 
         uint256 currentEpoch = getPremiumDistributionEpoch();
 
@@ -136,8 +139,12 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         for (uint256 i = lastEpoch + 1; i <= distributionEpoch; i++) {
             currentDistribution += _premiumDistributionDeltas[assetId][i];
 
-            totalPremiumAdded += uint256(currentDistribution) / 1e18;
+            if (currentDistribution > 0) {
+                totalPremiumAdded += uint256(currentDistribution);
+            }
         }
+
+        totalPremiumAdded = totalPremiumAdded / 1e18;
 
         if (totalPremiumAdded > 0) {
             _premiumDistribution[assetId].accumulatedPremiumPerShare +=
@@ -167,15 +174,9 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         _updatePremiumDistribution(assetId);
 
         uint256 distributionEpochs = Math.max(1, period / EPOCH_DURATION);
-
-    
         uint256 amountPerEpoch = (amount * 1e18) / distributionEpochs;
 
-    
-
         currentEpoch += 1;
-
-        
         _premiumDistributionDeltas[assetId][currentEpoch] += int256(
             amountPerEpoch
         );
@@ -235,13 +236,13 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
             if (currentEpoch > lastEpoch) {
                 int256 currentDistribution = distribution
                     .lastPremiumDistributionAmount;
-                uint256 totalPremiumAdded = 0;
+                    
+                uint256 totalPremiumAdded;
 
                 uint256 distributionEpoch = Math.min(
                     currentEpoch,
                     lastEpoch + MAX_PREMIUM_DISTRIBUTION_EPOCHS + 1
                 );
-
                 for (
                     uint256 epoch = lastEpoch + 1;
                     epoch <= distributionEpoch;
@@ -251,9 +252,12 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
                         epoch
                     ];
 
-                    // Apply the same 1e18 scaling correction as in the main function
-                    totalPremiumAdded += uint256(currentDistribution) / 1e18;
+                    if (currentDistribution > 0) {
+                        totalPremiumAdded += uint256(currentDistribution);
+                    }
                 }
+
+                totalPremiumAdded = totalPremiumAdded / 1e18;
 
                 if (totalPremiumAdded > 0) {
                     accPremium +=
@@ -262,7 +266,6 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
                 }
             }
         }
-
         return ((provider.amount * accPremium) / 1e36) - provider.rewardDebt;
     }
 
