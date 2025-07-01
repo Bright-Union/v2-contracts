@@ -31,4 +31,15 @@ interface IProducts {
     ) external view returns (uint);
 
     function getAssetAddress(uint assetId) external view returns (address);
+
+    function getProductAllocation(
+        uint productId,
+        uint8 assetId
+    ) external view returns (uint256);
+
+    function getTotalProductAllocations(
+        uint8 assetId
+    ) external view returns (uint256);
+
+    function getProductCount() external view returns (uint);
 }

@@ -14,6 +14,7 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
 
     uint256 private constant EPOCH_DURATION = 1 days;
     uint256 private constant MAX_PREMIUM_DISTRIBUTION_EPOCHS = 30;
+    uint256 private constant LEVERAGE_MULTIPLIER = 25;
 
     IProducts public immutable products;
 
@@ -23,6 +24,9 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
 
     // Total liquidity per asset
     mapping(uint8 => uint256) internal _totalLiquidity;
+
+    // Product utilization mappings
+    mapping(uint8 => mapping(uint => uint256)) internal _productUtilization; // assetId => productId => current usage
 
     // Premium delta changes at specific epochs (assetId => epoch => premiumDelta)
     mapping(uint8 => mapping(uint256 => int256))
@@ -100,6 +104,45 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         address user,
         uint256 amount
     ) internal nonReentrant updatesPremiumDistribution(assetId) {
+        if (_totalLiquidity[assetId] < amount) revert InsufficientLiquidity();
+
+        // Calculate new total liquidity
+        uint256 newTotalLiquidity = _totalLiquidity[assetId] - amount;
+        uint256 newTotalLeveragedLiquidity = newTotalLiquidity *
+            LEVERAGE_MULTIPLIER;
+
+        // Calculate total allocations
+        uint256 totalAllocations = products.getTotalProductAllocations(assetId);
+        if (totalAllocations > 0) {
+            // Only check if there are allocations
+            // Check if withdrawal would cause over-allocation for any product
+            uint productCount = products.getProductCount();
+            for (uint i = 0; i < productCount; i++) {
+                uint productId = i; // Assuming product IDs are sequential
+
+                // Get product allocation
+                uint256 allocation = products.getProductAllocation(
+                    productId,
+                    assetId
+                );
+
+                // Skip products with no allocation
+                if (allocation == 0) continue;
+
+                // Calculate new product capacity
+                uint256 newProductCapacity = (newTotalLeveragedLiquidity *
+                    allocation) / totalAllocations;
+
+                // Check if utilization exceeds new capacity
+                if (
+                    _productUtilization[assetId][productId] > newProductCapacity
+                ) {
+                    revert InsufficientLiquidity(); // Using existing error to keep interface simple
+                }
+            }
+        }
+
+        // Continue with withdrawal
         LiquidityProvider storage _provider = _liquidityProviders[assetId][
             user
         ];
@@ -205,6 +248,76 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         return block.timestamp / EPOCH_DURATION;
     }
 
+    /* ========== LEVERAGE FUNCTIONS ========== */
+
+    function getProductCapacity(
+        uint8 assetId,
+        uint productId
+    ) public view returns (uint256) {
+        uint256 allocation = products.getProductAllocation(productId, assetId);
+        if (allocation == 0) return 0;
+
+        uint256 totalAllocations = products.getTotalProductAllocations(assetId);
+        uint256 totalLeveragedLiquidity = _totalLiquidity[assetId] *
+            LEVERAGE_MULTIPLIER;
+        return (totalLeveragedLiquidity * allocation) / totalAllocations;
+    }
+
+    function getAvailableProductCapacity(
+        uint8 assetId,
+        uint productId
+    ) public view returns (uint256) {
+        uint256 capacity = getProductCapacity(assetId, productId);
+        uint256 utilization = _productUtilization[assetId][productId];
+
+        return capacity > utilization ? capacity - utilization : 0;
+    }
+
+    function _onPurchaseCover(
+        uint8 assetId,
+        uint productId,
+        uint256 amount
+    ) internal {
+        // Check if product has allocation
+        uint256 allocation = products.getProductAllocation(productId, assetId);
+        require(allocation > 0, "Product has no allocation");
+
+        // Check if product has enough capacity
+        uint256 availableCapacity = getAvailableProductCapacity(
+            assetId,
+            productId
+        );
+        if (availableCapacity < amount) {
+            revert InsufficientProductCapacity();
+        }
+
+        // Update utilization
+        _productUtilization[assetId][productId] += amount;
+        emit ProductUtilizationUpdated(
+            assetId,
+            productId,
+            _productUtilization[assetId][productId]
+        );
+    }
+
+    function _onExpireCover(
+        uint8 assetId,
+        uint productId,
+        uint256 amount
+    ) internal {
+        // Update utilization
+        if (_productUtilization[assetId][productId] >= amount) {
+            _productUtilization[assetId][productId] -= amount;
+        } else {
+            _productUtilization[assetId][productId] = 0; // Safety check
+        }
+        emit ProductUtilizationUpdated(
+            assetId,
+            productId,
+            _productUtilization[assetId][productId]
+        );
+    }
+
     /* ========== VIEW FUNCTIONS ========== */
 
     function getTotalLiquidity(uint8 assetId) external view returns (uint256) {
@@ -236,7 +349,7 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
             if (currentEpoch > lastEpoch) {
                 int256 currentDistribution = distribution
                     .lastPremiumDistributionAmount;
-                    
+
                 uint256 totalPremiumAdded;
 
                 uint256 distributionEpoch = Math.min(

@@ -15,6 +15,7 @@ interface ILiquidity {
     error InsufficientLiquidity();
     error TransferFailed();
     error InvalidEpoch();
+    error InsufficientProductCapacity();
 
     event RewardsClaimed(
         address indexed provider,
@@ -22,6 +23,29 @@ interface ILiquidity {
         uint256 amount
     );
     event PremiumAdded(uint8 indexed assetId, uint256 amount, uint32 period);
-    event LiquidityRemoved(address indexed provider, uint8 indexed assetId, uint256 amount);
-    event LiquidityAdded(address indexed provider, uint8 indexed assetId, uint256 amount);
+    event LiquidityRemoved(
+        address indexed provider,
+        uint8 indexed assetId,
+        uint256 amount
+    );
+    event LiquidityAdded(
+        address indexed provider,
+        uint8 indexed assetId,
+        uint256 amount
+    );
+    event ProductUtilizationUpdated(
+        uint8 indexed assetId,
+        uint indexed productId,
+        uint256 utilization
+    );
+
+    function getProductCapacity(
+        uint8 assetId,
+        uint productId
+    ) external view returns (uint256);
+
+    function getAvailableProductCapacity(
+        uint8 assetId,
+        uint productId
+    ) external view returns (uint256);
 }
