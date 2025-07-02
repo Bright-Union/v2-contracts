@@ -104,45 +104,33 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         address user,
         uint256 amount
     ) internal nonReentrant updatesPremiumDistribution(assetId) {
-        if (_totalLiquidity[assetId] < amount) revert InsufficientLiquidity();
-
-        // Calculate new total liquidity
         uint256 newTotalLiquidity = _totalLiquidity[assetId] - amount;
         uint256 newTotalLeveragedLiquidity = newTotalLiquidity *
             LEVERAGE_MULTIPLIER;
 
-        // Calculate total allocations
-        uint256 totalAllocations = products.getTotalProductAllocations(assetId);
+        uint256 totalAllocations = products.getTotalAssetAllocations(assetId);
         if (totalAllocations > 0) {
-            // Only check if there are allocations
             // Check if withdrawal would cause over-allocation for any product
             uint productCount = products.getProductCount();
             for (uint i = 0; i < productCount; i++) {
-                uint productId = i; // Assuming product IDs are sequential
+                uint productId = i;
 
-                // Get product allocation
                 uint256 allocation = products.getProductAllocation(
                     productId,
                     assetId
                 );
-
-                // Skip products with no allocation
                 if (allocation == 0) continue;
 
-                // Calculate new product capacity
                 uint256 newProductCapacity = (newTotalLeveragedLiquidity *
                     allocation) / totalAllocations;
 
-                // Check if utilization exceeds new capacity
                 if (
                     _productUtilization[assetId][productId] > newProductCapacity
                 ) {
-                    revert InsufficientLiquidity(); // Using existing error to keep interface simple
+                    revert InsufficientLiquidity();
                 }
             }
         }
-
-        // Continue with withdrawal
         LiquidityProvider storage _provider = _liquidityProviders[assetId][
             user
         ];
@@ -152,7 +140,7 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
 
         _provider.amount -= amount;
 
-        _totalLiquidity[assetId] -= amount;
+        _totalLiquidity[assetId] = newTotalLiquidity;
 
         emit LiquidityRemoved(user, assetId, amount);
     }
@@ -257,7 +245,7 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         uint256 allocation = products.getProductAllocation(productId, assetId);
         if (allocation == 0) return 0;
 
-        uint256 totalAllocations = products.getTotalProductAllocations(assetId);
+        uint256 totalAllocations = products.getTotalAssetAllocations(assetId);
         uint256 totalLeveragedLiquidity = _totalLiquidity[assetId] *
             LEVERAGE_MULTIPLIER;
         return (totalLeveragedLiquidity * allocation) / totalAllocations;
@@ -309,7 +297,7 @@ contract LiquidityHook is ILiquidity, ReentrancyGuard {
         if (_productUtilization[assetId][productId] >= amount) {
             _productUtilization[assetId][productId] -= amount;
         } else {
-            _productUtilization[assetId][productId] = 0; // Safety check
+            delete _productUtilization[assetId][productId];
         }
         emit ProductUtilizationUpdated(
             assetId,

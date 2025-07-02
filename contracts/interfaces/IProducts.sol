@@ -37,7 +37,7 @@ interface IProducts {
         uint8 assetId
     ) external view returns (uint256);
 
-    function getTotalProductAllocations(
+    function getTotalAssetAllocations(
         uint8 assetId
     ) external view returns (uint256);
 

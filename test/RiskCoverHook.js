@@ -41,7 +41,7 @@ describe("RiskCoverHook", function () {
       products.target,
     ]);
 
-    await products.setProducts([product]);
+    await products.setProducts([product], [[]], [[]]);  
     await products.addAsset(AddressZero, true);
 
     await riskCoverHook.addLiquidity(0, toWei("10000"));

@@ -5,6 +5,29 @@ import "../cover/LiquidityHook.sol";
 
 contract LiquidityHookMock is LiquidityHook {
     constructor(IProducts _products) LiquidityHook(_products) {}
+    
+    function purchaseCover(
+        uint8 assetId,
+        uint productId,
+        uint256 amount
+    ) external {
+        _onPurchaseCover(assetId, productId, amount);
+    }
+    
+    function expireCover(
+        uint8 assetId,
+        uint productId,
+        uint256 amount
+    ) external {
+        _onExpireCover(assetId, productId, amount);
+    }
+    
+    function getProductUtilization(
+        uint8 assetId,
+        uint productId
+    ) external view returns (uint256) {
+        return _productUtilization[assetId][productId];
+    }
 
     function addLiquidity(uint8 assetId, uint256 amount) external payable {
         if (products.getAssetAddress(assetId) == address(0)) {

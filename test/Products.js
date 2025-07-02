@@ -36,12 +36,11 @@ describe("Products", function () {
       products  = await loadFixture(deployProducts);
       expect(await products.owner()).to.equal(owner);
 
-      await products.setProducts([product]);
+      await products.setProducts([product], [[]], [[]]);  // Updated to include assetIds and allocations params
 
       expect(await products.getProductCount()).to.equal(1);
       expect((await products.getProduct(0))[0]).to.equal('Aave');
       expect(await products.getProductName(0)).to.equal('Aave');
-
     });
   });
 
@@ -50,7 +49,7 @@ describe("Products", function () {
 
     it("should calculate premium", async () => {
       products = await loadFixture(deployProducts);
-      await products.setProducts([product]);
+      await products.setProducts([product], [[]], [[]]);
 
       const amount = toWei('1');
       const duration = daysToSeconds(365);

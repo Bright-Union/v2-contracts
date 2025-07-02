@@ -46,18 +46,17 @@ contract Products is IProducts, Ownable {
                 newProductValue.isDeprecated = param.isDeprecated;
                 _productNames[param.productId] = param.productName;
 
-                _setProductAllocations(
-                    param.productId,
-                    param.coverAssets,
-                    assetIds[i],
-                    allocations[i]
-                );
-
                 emit ProductUpdated(param.productId);
             } else {
                 uint productId = _products.length;
                 _productNames[productId] = param.productName;
                 _products.push(param);
+                _setProductAllocations(
+                    productId,
+                    param.coverAssets,
+                    assetIds[i],
+                    allocations[i]
+                );
                 emit ProductSet(productId);
             }
         }
@@ -122,7 +121,7 @@ contract Products is IProducts, Ownable {
         return assetAllocations[productId][assetId];
     }
 
-    function getTotalProductAllocations(
+    function getTotalAssetAllocations(
         uint8 assetId
     ) external view returns (uint256) {
         return _totalAssetAllocations[assetId];

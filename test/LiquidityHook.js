@@ -367,4 +367,143 @@ describe("LiquidityHook", function () {
       );
     });
   });
+
+  describe("leveraged liquidity", function () {
+    it("should track product capacity and utilization based on allocations", async function () {
+      const { products, liquidityHook, owner } = await loadFixture(deployContracts);
+      
+      const liquidityAmount = toWei("100");
+      await liquidityHook.addLiquidity(0, liquidityAmount, { value: liquidityAmount });
+      
+      const product1 = ["Product1", 1, 1, "ipfs://product1.json", 100, 1, false];
+      const product2 = ["Product2", 2, 2, "ipfs://product2.json", 200, 1, false];
+      
+      // Asset ID 0 (ETH) allocation: Product1 = 30%, Product2 = 70%
+      await products.setProducts(
+        [product1, product2],
+        [[0], [0]],  // assetIds for each product
+        [[30], [70]]  // allocations for each product
+      );
+      
+      // Verify allocations were set correctly
+      expect(await products.getProductAllocation(0, 0)).to.equal(30);
+      expect(await products.getProductAllocation(1, 0)).to.equal(70);
+      expect(await products.getTotalAssetAllocations(0)).to.equal(100);
+      
+      // Check capacity calculation (liquidity * LEVERAGE_MULTIPLIER * allocation / totalAllocations)
+      // LEVERAGE_MULTIPLIER = 25 from the contract
+      const totalLeveraged = toBN(liquidityAmount).times(25);
+      
+      // Product 1 should have 30% capacity
+      const expectedCapacity1 = totalLeveraged.times(30).div(100);
+      const actualCapacity1 = await liquidityHook.getProductCapacity(0, 0);
+      expect(toBN(actualCapacity1).toString()).to.equal(expectedCapacity1.toString());
+      
+      // Product 2 should have 70% capacity
+      const expectedCapacity2 = totalLeveraged.times(70).div(100);
+      const actualCapacity2 = await liquidityHook.getProductCapacity(0, 1);
+      expect(toBN(actualCapacity2).toString()).to.equal(expectedCapacity2.toString());
+      
+      // Available capacity should equal capacity when no utilization
+      expect(await liquidityHook.getAvailableProductCapacity(0, 0)).to.equal(actualCapacity1);
+      expect(await liquidityHook.getAvailableProductCapacity(0, 1)).to.equal(actualCapacity2);
+    });
+    
+    it("should track product utilization when purchasing cover", async function () {
+      const { products, liquidityHook, owner } = await loadFixture(deployContracts);
+      
+      // Add some liquidity to the pool
+      const liquidityAmount = toWei("100");
+      await liquidityHook.addLiquidity(0, liquidityAmount, { value: liquidityAmount });
+      
+      // Create two products with different allocations
+      const product1 = ["Product1", 1, 1, "ipfs://product1.json", 100, 1, false];
+      const product2 = ["Product2", 2, 2, "ipfs://product2.json", 200, 1, false];
+      
+      // Asset ID 0 (ETH) allocation: Product1 = 30%, Product2 = 70%
+      await products.setProducts(
+        [product1, product2],
+        [[0], [0]],
+        [[30], [70]]
+      );
+      
+      // Simulate buying cover for Product 1 (use half of its capacity)
+      const coverAmount1 = toBN(await liquidityHook.getProductCapacity(0, 0)).div(2);
+      await liquidityHook.purchaseCover(0, 0, coverAmount1.toString());
+      
+      // Check utilization is tracked correctly
+      expect(await liquidityHook.getProductUtilization(0, 0)).to.equal(coverAmount1.toString());
+      
+      // Available capacity should be reduced by utilization
+      const capacity1 = await liquidityHook.getProductCapacity(0, 0);
+      const availableCapacity1 = await liquidityHook.getAvailableProductCapacity(0, 0);
+      expect(toBN(capacity1).minus(coverAmount1).toString()).to.equal(toBN(availableCapacity1).toString());
+      
+      // Product 2 should still have full capacity
+      const capacity2 = await liquidityHook.getProductCapacity(0, 1);
+      const availableCapacity2 = await liquidityHook.getAvailableProductCapacity(0, 1);
+      expect(capacity2).to.equal(availableCapacity2);
+    });
+    
+    it("should revert when product has insufficient capacity", async function () {
+      const { products, liquidityHook, owner } = await loadFixture(deployContracts);
+      
+      // Add some liquidity to the pool
+      const liquidityAmount = toWei("100");
+      await liquidityHook.addLiquidity(0, liquidityAmount, { value: liquidityAmount });
+      
+      // Create product with allocation
+      const product1 = ["Product1", 1, 1, "ipfs://product1.json", 100, 1, false];
+      
+      await products.setProducts(
+        [product1],
+        [[0]],
+        [[100]]
+      );
+      
+      // Get product capacity
+      const capacity = await liquidityHook.getProductCapacity(0, 0);
+      
+      // Try to buy cover with amount exceeding capacity
+      const excessAmount = toBN(capacity).plus(1).toString();
+      await expect(
+        liquidityHook.purchaseCover(0, 0, excessAmount)
+      ).to.be.revertedWithCustomError(liquidityHook, "InsufficientProductCapacity");
+    });
+    
+    it("should update utilization when cover expires", async function () {
+      const { products, liquidityHook, owner } = await loadFixture(deployContracts);
+      
+      // Add some liquidity to the pool
+      const liquidityAmount = toWei("100");
+      await liquidityHook.addLiquidity(0, liquidityAmount, { value: liquidityAmount });
+      
+      // Create product with allocation
+      const product1 = ["Product1", 1, 1, "ipfs://product1.json", 100, 1, false];
+      
+      await products.setProducts(
+        [product1],
+        [[0]],
+        [[100]]
+      );
+      
+      // Simulate buying cover
+      const coverAmount = toWei("10");
+      await liquidityHook.purchaseCover(0, 0, coverAmount);
+      
+      // Check utilization
+      expect(await liquidityHook.getProductUtilization(0, 0)).to.equal(coverAmount);
+      
+      // Simulate cover expiration
+      await liquidityHook.expireCover(0, 0, coverAmount);
+      
+      // Check utilization is reset
+      expect(await liquidityHook.getProductUtilization(0, 0)).to.equal(0);
+      
+      // Available capacity should be back to full
+      const capacity = await liquidityHook.getProductCapacity(0, 0);
+      const availableCapacity = await liquidityHook.getAvailableProductCapacity(0, 0);
+      expect(capacity).to.equal(availableCapacity);
+    });
+  });
 });
