@@ -15,7 +15,7 @@ const { ethers, upgrades } = require("hardhat");
 
 const { AddressZero } = require("@ethersproject/constants");
 
-describe("RiskCoverHook", function () {
+describe("riskCover", function () {
   let owner;
   let addr1;
   let addr2;
@@ -27,7 +27,7 @@ describe("RiskCoverHook", function () {
     [owner, addr1, addr2, addr3] = await ethers.getSigners();
   });
 
-  async function deployRiskCoverHook() {
+  async function deployriskCover() {
     const products = await ethers.deployContract("Products", [owner]);
 
     const coverNFT = await ethers.deployContract("CoverNFT", [
@@ -36,51 +36,51 @@ describe("RiskCoverHook", function () {
       "https://api.bright.union/v2/metadata/",
     ]);
 
-    const riskCoverHook = await ethers.deployContract("RiskCoverHookMock", [
+    const riskCover = await ethers.deployContract("RiskCoverMock", [
       coverNFT.target,
       products.target,
     ]);
 
-    await products.setProducts([product], [[]], [[]]);  
+    await products.setProducts([product], [[]], [[]]);
     await products.addAsset(AddressZero, true);
 
-    await riskCoverHook.addLiquidity(0, toWei("10000"));
+    await riskCover.addLiquidity(0, toWei("10000"));
 
-    return { products, coverNFT, riskCoverHook };
+    return { products, coverNFT, riskCover };
   }
 
   describe("setup", () => {
     let products;
     let coverNFT;
-    let riskCoverHook;
+    let riskCover;
 
     it("should deploy contracts", async () => {
-      const deployment = await loadFixture(deployRiskCoverHook);
+      const deployment = await loadFixture(deployriskCover);
       products = deployment.products;
       coverNFT = deployment.coverNFT;
-      riskCoverHook = deployment.riskCoverHook;
+      riskCover = deployment.riskCover;
 
-      expect(await riskCoverHook.coverNFT()).to.equal(coverNFT.target);
-      expect(await riskCoverHook.products()).to.equal(products.target);
+      expect(await riskCover.coverNFT()).to.equal(coverNFT.target);
+      expect(await riskCover.products()).to.equal(products.target);
     });
   });
 
   describe("buyCover", () => {
     let products;
     let coverNFT;
-    let riskCoverHook;
+    let riskCover;
 
     beforeEach(async () => {
-      const deployment = await loadFixture(deployRiskCoverHook);
+      const deployment = await loadFixture(deployriskCover);
       products = deployment.products;
       coverNFT = deployment.coverNFT;
-      riskCoverHook = deployment.riskCoverHook;
+      riskCover = deployment.riskCover;
     });
 
     it("should revert with CoverPeriodTooShort", async () => {
       const MIN_COVER_PERIOD = daysToSeconds(28);
       const shortPeriod = MIN_COVER_PERIOD - 1;
-      
+
       const buyCoverParams = {
         coverId: 0,
         owner: owner.address,
@@ -90,16 +90,16 @@ describe("RiskCoverHook", function () {
         period: shortPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(buyCoverParams, { value: toWei("10") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "CoverPeriodTooShort")
+
+      await expect(riskCover.buyCover(buyCoverParams, { value: toWei("10") }))
+        .to.be.revertedWithCustomError(riskCover, "CoverPeriodTooShort")
         .withArgs(shortPeriod, MIN_COVER_PERIOD);
     });
 
     it("should revert with CoverPeriodTooLong", async () => {
       const MAX_COVER_PERIOD = daysToSeconds(365);
       const longPeriod = MAX_COVER_PERIOD + 1;
-      
+
       const buyCoverParams = {
         coverId: 0,
         owner: owner.address,
@@ -109,15 +109,15 @@ describe("RiskCoverHook", function () {
         period: longPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(buyCoverParams, { value: toWei("10") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "CoverPeriodTooLong")
+
+      await expect(riskCover.buyCover(buyCoverParams, { value: toWei("10") }))
+        .to.be.revertedWithCustomError(riskCover, "CoverPeriodTooLong")
         .withArgs(longPeriod, MAX_COVER_PERIOD);
     });
 
     it("should revert with CoverAmountIsZero", async () => {
       const validPeriod = daysToSeconds(30);
-      
+
       const buyCoverParams = {
         coverId: 0,
         owner: owner.address,
@@ -127,15 +127,15 @@ describe("RiskCoverHook", function () {
         period: validPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(buyCoverParams, { value: toWei("1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "CoverAmountIsZero");
+
+      await expect(riskCover.buyCover(buyCoverParams, { value: toWei("1") }))
+        .to.be.revertedWithCustomError(riskCover, "CoverAmountIsZero");
     });
 
     it("should revert with AssetNotFound", async () => {
       const validPeriod = daysToSeconds(30);
       const nonExistentAssetId = 99;
-      
+
       const buyCoverParams = {
         coverId: 0,
         owner: owner.address,
@@ -145,18 +145,18 @@ describe("RiskCoverHook", function () {
         period: validPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(buyCoverParams, { value: toWei("1") }))
+
+      await expect(riskCover.buyCover(buyCoverParams, { value: toWei("1") }))
         .to.be.revertedWithCustomError(products, "AssetNotFound")
         .withArgs(nonExistentAssetId);
     });
 
     it("should revert with AssetNotSupported", async () => {
       const validPeriod = daysToSeconds(30);
-      
+
       await products.addAsset(AddressZero, false);
       const nonCoverAssetId = 1;
-      
+
       const buyCoverParams = {
         coverId: 0,
         owner: owner.address,
@@ -166,9 +166,9 @@ describe("RiskCoverHook", function () {
         period: validPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(buyCoverParams, { value: toWei("1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "AssetNotSupported");
+
+      await expect(riskCover.buyCover(buyCoverParams, { value: toWei("1") }))
+        .to.be.revertedWithCustomError(riskCover, "AssetNotSupported");
     });
 
     it("should revert with InsufficientLiquidity", async () => {
@@ -176,8 +176,8 @@ describe("RiskCoverHook", function () {
       await products.addAsset(AddressZero, true);
       const limitedLiquidityAssetId = 1;
       const smallLiquidity = toWei("0.5");
-      await riskCoverHook.addLiquidity(limitedLiquidityAssetId, smallLiquidity);
-      
+      await riskCover.addLiquidity(limitedLiquidityAssetId, smallLiquidity);
+
       const buyCoverParams = {
         coverId: 0,
         owner: owner.address,
@@ -187,15 +187,15 @@ describe("RiskCoverHook", function () {
         period: validPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(buyCoverParams, { value: toWei("1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "InsufficientLiquidity");
+
+      await expect(riskCover.buyCover(buyCoverParams, { value: toWei("1") }))
+        .to.be.revertedWithCustomError(riskCover, "InsufficientLiquidity");
     });
 
     it("should revert with PremiumPaymentFailed", async () => {
       const validPeriod = daysToSeconds(30);
       const coverAmount = toWei("1");
-      
+
       const buyCoverParams = {
         coverId: 0,
         owner: owner.address,
@@ -208,15 +208,15 @@ describe("RiskCoverHook", function () {
 
       const premium = await products.calculatePremium(coverAmount, validPeriod, 0);
       const insufficientPremium = premium - 1n;
-      
-      await expect(riskCoverHook.buyCover(buyCoverParams, { value: insufficientPremium }))
-        .to.be.revertedWithCustomError(riskCoverHook, "PremiumPaymentFailed");
+
+      await expect(riskCover.buyCover(buyCoverParams, { value: insufficientPremium }))
+        .to.be.revertedWithCustomError(riskCover, "PremiumPaymentFailed");
     });
 
     it("should successfully buy cover with eth and check cover info", async () => {
       const validPeriod = daysToSeconds(30);
       const coverAmount = toWei("1");
-      
+
       const buyCoverParams = {
         coverId: 0,
         owner: addr1.address,
@@ -228,30 +228,30 @@ describe("RiskCoverHook", function () {
       };
 
       const premium = await products.calculatePremium(coverAmount, validPeriod, 0);
-      
-      const totalCoverBefore = await riskCoverHook.getTotalActiveCover(0);
-      
-      await riskCoverHook.connect(addr1).buyCover(buyCoverParams, { value: premium });
-      
+
+      const totalCoverBefore = await riskCover.getTotalActiveCover(0);
+
+      await riskCover.connect(addr1).buyCover(buyCoverParams, { value: premium });
+
       const coverId = 1;
-      const coverInfo = await riskCoverHook.getCover(coverId);
+      const coverInfo = await riskCover.getCover(coverId);
       expect(coverInfo.owner).to.equal(addr1.address);
       expect(coverInfo.productId).to.equal(0);
       expect(coverInfo.coverAsset).to.equal(0);
       expect(coverInfo.amount).to.equal(coverAmount);
       expect(coverInfo.period).to.equal(validPeriod);
       expect(coverInfo.active).to.be.true;
-      const userCovers = await riskCoverHook.getUserCovers(addr1.address);
+      const userCovers = await riskCover.getUserCovers(addr1.address);
       expect(userCovers.length).to.equal(1);
       expect(userCovers[0]).to.equal(coverId);
-      const totalCoverAfter = await riskCoverHook.getTotalActiveCover(0);
+      const totalCoverAfter = await riskCover.getTotalActiveCover(0);
       expect(totalCoverAfter).to.equal(totalCoverBefore + coverAmount);
     });
 
     it("should successfully mint NFT to user when buying cover", async () => {
       const validPeriod = daysToSeconds(30);
       const coverAmount = toWei("0.5");
-      
+
       const buyCoverParams = {
         coverId: 0,
         owner: addr2.address,
@@ -263,14 +263,14 @@ describe("RiskCoverHook", function () {
       };
 
       const premium = await products.calculatePremium(coverAmount, validPeriod, 0);
-      
-      const contractBalanceBefore = await ethers.provider.getBalance(riskCoverHook.target);
-      await riskCoverHook.connect(addr2).buyCover(buyCoverParams, { value: premium });
-      
+
+      const contractBalanceBefore = await ethers.provider.getBalance(riskCover.target);
+      await riskCover.connect(addr2).buyCover(buyCoverParams, { value: premium });
+
       const coverId = 1;
       const tokenOwner = await coverNFT.ownerOf(coverId);
       expect(tokenOwner).to.equal(addr2.address);
-      const contractBalanceAfter = await ethers.provider.getBalance(riskCoverHook.target);
+      const contractBalanceAfter = await ethers.provider.getBalance(riskCover.target);
       expect(contractBalanceAfter).to.equal(contractBalanceBefore + premium);
     });
   });
@@ -278,16 +278,16 @@ describe("RiskCoverHook", function () {
   describe("extendCover", () => {
     let products;
     let coverNFT;
-    let riskCoverHook;
+    let riskCover;
     let coverId;
     let initialCoverAmount;
     let initialPeriod;
 
     beforeEach(async () => {
-      const deployment = await loadFixture(deployRiskCoverHook);
+      const deployment = await loadFixture(deployriskCover);
       products = deployment.products;
       coverNFT = deployment.coverNFT;
-      riskCoverHook = deployment.riskCoverHook;
+      riskCover = deployment.riskCover;
 
       initialCoverAmount = toWei("1");
       initialPeriod = daysToSeconds(30);
@@ -303,15 +303,15 @@ describe("RiskCoverHook", function () {
       };
 
       const premium = await products.calculatePremium(initialCoverAmount, initialPeriod, 0);
-      await riskCoverHook.buyCover(buyCoverParams, { value: premium });
-      
+      await riskCover.buyCover(buyCoverParams, { value: premium });
+
       coverId = 1;
     });
 
     it("should revert with CoverNotFound", async () => {
       const invalidCoverId = 999;
       const extendPeriod = daysToSeconds(30);
-      
+
       const extendCoverParams = {
         coverId: invalidCoverId,
         owner: owner.address,
@@ -321,14 +321,14 @@ describe("RiskCoverHook", function () {
         period: extendPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(extendCoverParams, { value: toWei("0.1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "CoverNotFound");
+
+      await expect(riskCover.buyCover(extendCoverParams, { value: toWei("0.1") }))
+        .to.be.revertedWithCustomError(riskCover, "CoverNotFound");
     });
 
     it("should revert with NotCoverOwner", async () => {
       const extendPeriod = daysToSeconds(30);
-      
+
       const extendCoverParams = {
         coverId: coverId,
         owner: owner.address,
@@ -338,16 +338,16 @@ describe("RiskCoverHook", function () {
         period: extendPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.connect(addr1).buyCover(extendCoverParams, { value: toWei("0.1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "NotCoverOwner");
+
+      await expect(riskCover.connect(addr1).buyCover(extendCoverParams, { value: toWei("0.1") }))
+        .to.be.revertedWithCustomError(riskCover, "NotCoverOwner");
     });
 
     it("should revert with AssetNotSupported", async () => {
       await products.addAsset(AddressZero, true);
       const differentAssetId = 1;
       const extendPeriod = daysToSeconds(30);
-      
+
       const extendCoverParams = {
         coverId: coverId,
         owner: owner.address,
@@ -357,9 +357,9 @@ describe("RiskCoverHook", function () {
         period: extendPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(extendCoverParams, { value: toWei("0.1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "AssetNotSupported");
+
+      await expect(riskCover.buyCover(extendCoverParams, { value: toWei("0.1") }))
+        .to.be.revertedWithCustomError(riskCover, "AssetNotSupported");
     });
 
     it("should revert with NoModificationsRequested", async () => {
@@ -372,15 +372,15 @@ describe("RiskCoverHook", function () {
         period: 0,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(extendCoverParams, { value: toWei("0.1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "NoModificationsRequested");
+
+      await expect(riskCover.buyCover(extendCoverParams, { value: toWei("0.1") }))
+        .to.be.revertedWithCustomError(riskCover, "NoModificationsRequested");
     });
 
     it("should revert with CoverPeriodTooLong", async () => {
       const MAX_COVER_PERIOD = daysToSeconds(365);
       const tooLongExtendPeriod = MAX_COVER_PERIOD - initialPeriod + 1;
-      
+
       const extendCoverParams = {
         coverId: coverId,
         owner: owner.address,
@@ -390,16 +390,16 @@ describe("RiskCoverHook", function () {
         period: tooLongExtendPeriod,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(extendCoverParams, { value: toWei("1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "CoverPeriodTooLong");
+
+      await expect(riskCover.buyCover(extendCoverParams, { value: toWei("1") }))
+        .to.be.revertedWithCustomError(riskCover, "CoverPeriodTooLong");
     });
 
     it("should revert with InsufficientLiquidity", async () => {
       await products.addAsset(AddressZero, true);
       const limitedLiquidityAssetId = 1;
-      await riskCoverHook.addLiquidity(limitedLiquidityAssetId, toWei("0.5"));
-      
+      await riskCover.addLiquidity(limitedLiquidityAssetId, toWei("0.5"));
+
       const buyCoverParams = {
         coverId: 0,
         owner: owner.address,
@@ -411,10 +411,10 @@ describe("RiskCoverHook", function () {
       };
 
       const premium1 = await products.calculatePremium(toWei("0.3"), initialPeriod, 0);
-      await riskCoverHook.buyCover(buyCoverParams, { value: premium1 });
-      
+      await riskCover.buyCover(buyCoverParams, { value: premium1 });
+
       const secondCoverId = 2;
-      
+
       const extendCoverParams = {
         coverId: secondCoverId,
         owner: owner.address,
@@ -424,14 +424,14 @@ describe("RiskCoverHook", function () {
         period: 0,
         paymentAsset: 0
       };
-      
-      await expect(riskCoverHook.buyCover(extendCoverParams, { value: toWei("0.1") }))
-        .to.be.revertedWithCustomError(riskCoverHook, "InsufficientLiquidity");
+
+      await expect(riskCover.buyCover(extendCoverParams, { value: toWei("0.1") }))
+        .to.be.revertedWithCustomError(riskCover, "InsufficientLiquidity");
     });
 
     it("should revert with PremiumPaymentFailed", async () => {
       const extendPeriod = daysToSeconds(30);
-      
+
       const extendCoverParams = {
         coverId: coverId,
         owner: owner.address,
@@ -444,14 +444,14 @@ describe("RiskCoverHook", function () {
 
       const premium = await products.calculatePremium(initialCoverAmount, extendPeriod, 0);
       const insufficientPremium = premium - 1n;
-      
-      await expect(riskCoverHook.buyCover(extendCoverParams, { value: insufficientPremium }))
-        .to.be.revertedWithCustomError(riskCoverHook, "PremiumPaymentFailed");
+
+      await expect(riskCover.buyCover(extendCoverParams, { value: insufficientPremium }))
+        .to.be.revertedWithCustomError(riskCover, "PremiumPaymentFailed");
     });
 
     it("should successfully extend cover period", async () => {
       const extendPeriod = daysToSeconds(30);
-      
+
       const extendCoverParams = {
         coverId: coverId,
         owner: owner.address,
@@ -463,26 +463,26 @@ describe("RiskCoverHook", function () {
       };
 
       const premium = await products.calculatePremium(initialCoverAmount, extendPeriod, 0);
-      const coverBefore = await riskCoverHook.getCover(coverId);
-      const contractBalanceBefore = await ethers.provider.getBalance(riskCoverHook.target);
-      
-      await riskCoverHook.buyCover(extendCoverParams, { value: premium });
-      
-      const coverAfter = await riskCoverHook.getCover(coverId);
-      const contractBalanceAfter = await ethers.provider.getBalance(riskCoverHook.target);
-      
+      const coverBefore = await riskCover.getCover(coverId);
+      const contractBalanceBefore = await ethers.provider.getBalance(riskCover.target);
+
+      await riskCover.buyCover(extendCoverParams, { value: premium });
+
+      const coverAfter = await riskCover.getCover(coverId);
+      const contractBalanceAfter = await ethers.provider.getBalance(riskCover.target);
+
       const expectedPeriod = toBN(coverBefore.period).plus(toBN(extendPeriod));
       expect(toBN(coverAfter.period).toString()).to.equal(expectedPeriod.toString());
-      
+
       expect(toBN(coverAfter.amount).toString()).to.equal(toBN(coverBefore.amount).toString());
-      
+
       const expectedBalance = toBN(contractBalanceBefore).plus(toBN(premium));
       expect(toBN(contractBalanceAfter).toString()).to.equal(expectedBalance.toString());
     });
 
     it("should successfully increase cover amount", async () => {
       const additionalAmount = toWei("0.5");
-      
+
       const extendCoverParams = {
         coverId: coverId,
         owner: owner.address,
@@ -495,23 +495,23 @@ describe("RiskCoverHook", function () {
 
       const remainingPeriod = initialPeriod;
       const premium = await products.calculatePremium(additionalAmount, remainingPeriod, 0);
-      const coverBefore = await riskCoverHook.getCover(coverId);
-      const totalCoverBefore = await riskCoverHook.getTotalActiveCover(0);
-      const contractBalanceBefore = await ethers.provider.getBalance(riskCoverHook.target);
-      
-      await riskCoverHook.buyCover(extendCoverParams, { value: premium });
-      
-      const coverAfter = await riskCoverHook.getCover(coverId);
-      const totalCoverAfter = await riskCoverHook.getTotalActiveCover(0);
-      const contractBalanceAfter = await ethers.provider.getBalance(riskCoverHook.target);
-      
+      const coverBefore = await riskCover.getCover(coverId);
+      const totalCoverBefore = await riskCover.getTotalActiveCover(0);
+      const contractBalanceBefore = await ethers.provider.getBalance(riskCover.target);
+
+      await riskCover.buyCover(extendCoverParams, { value: premium });
+
+      const coverAfter = await riskCover.getCover(coverId);
+      const totalCoverAfter = await riskCover.getTotalActiveCover(0);
+      const contractBalanceAfter = await ethers.provider.getBalance(riskCover.target);
+
       const expectedAmount = toBN(coverBefore.amount).plus(toBN(additionalAmount));
       expect(toBN(coverAfter.amount).toString()).to.equal(expectedAmount.toString());
       expect(coverAfter.period).to.equal(coverBefore.period);
-      
+
       const expectedTotalCover = toBN(totalCoverBefore).plus(toBN(additionalAmount));
       expect(toBN(totalCoverAfter).toString()).to.equal(expectedTotalCover.toString());
-      
+
       const expectedBalance = toBN(contractBalanceBefore).plus(toBN(premium));
       expect(toBN(contractBalanceAfter).toNumber()).to.be.closeTo(
         toBN(expectedBalance).toNumber(),
@@ -522,7 +522,7 @@ describe("RiskCoverHook", function () {
     it("should successfully increase both amount and period", async () => {
       const additionalAmount = toWei("0.5");
       const extendPeriod = daysToSeconds(30);
-      
+
       const extendCoverParams = {
         coverId: coverId,
         owner: owner.address,
@@ -533,33 +533,33 @@ describe("RiskCoverHook", function () {
         paymentAsset: 0
       };
 
-      const coverBefore = await riskCoverHook.getCover(coverId);
-      const totalCoverBefore = await riskCoverHook.getTotalActiveCover(0);
-      const contractBalanceBefore = await ethers.provider.getBalance(riskCoverHook.target);
+      const coverBefore = await riskCover.getCover(coverId);
+      const totalCoverBefore = await riskCover.getTotalActiveCover(0);
+      const contractBalanceBefore = await ethers.provider.getBalance(riskCover.target);
       const remainingPeriod = initialPeriod;
-      
+
       const premium1 = await products.calculatePremium(additionalAmount, remainingPeriod, 0);
       const combinedAmount = toBN(initialCoverAmount).plus(toBN(additionalAmount));
       const premium2 = await products.calculatePremium(combinedAmount.toString(), extendPeriod, 0);
-      
+
       const totalPremium = toBN(premium1).plus(toBN(premium2)).toString();
-      
-      await riskCoverHook.buyCover(extendCoverParams, { value: totalPremium });
-      
-      const coverAfter = await riskCoverHook.getCover(coverId);
-      const totalCoverAfter = await riskCoverHook.getTotalActiveCover(0);
-      const contractBalanceAfter = await ethers.provider.getBalance(riskCoverHook.target);
-      
+
+      await riskCover.buyCover(extendCoverParams, { value: totalPremium });
+
+      const coverAfter = await riskCover.getCover(coverId);
+      const totalCoverAfter = await riskCover.getTotalActiveCover(0);
+      const contractBalanceAfter = await ethers.provider.getBalance(riskCover.target);
+
       // Use BigNumber for safe arithmetic in assertions
       const expectedAmount = toBN(coverBefore.amount).plus(toBN(additionalAmount));
       expect(toBN(coverAfter.amount).toString()).to.equal(expectedAmount.toString());
-      
+
       const expectedPeriod = toBN(coverBefore.period).plus(toBN(extendPeriod));
       expect(toBN(coverAfter.period).toString()).to.equal(expectedPeriod.toString());
-      
+
       const expectedTotalCover = toBN(totalCoverBefore).plus(toBN(additionalAmount));
       expect(toBN(totalCoverAfter).toString()).to.equal(expectedTotalCover.toString());
-      
+
       const expectedBalance = toBN(contractBalanceBefore).plus(toBN(totalPremium));
       expect(toBN(contractBalanceAfter).toNumber()).to.be.closeTo(
         toBN(expectedBalance).toNumber(),

@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract RiskCoverHook is ICover, ReentrancyGuard {
+contract RiskCover is ICover, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     /* ========== CONSTANTS ========== */
